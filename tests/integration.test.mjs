@@ -1,0 +1,194 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {setTimeout as delay} from 'node:timers/promises';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+async function unusedPort(){const s=net.createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const port=s.address().port;await new Promise(r=>s.close(r));return port}
+async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http-')),signedOut=false,itemsFile=''}={}){
+ const port=await unusedPort(),base=`http://127.0.0.1:${port}`,log=path.join(dir,'rpc.jsonl');let output='';
+ const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PATH:path.dirname(process.execPath)+path.delimiter+process.env.PATH,PORT:String(port),REWSTER_DATA_DIR:dir,REWSTER_DESKTOP:'0',CODEX_BIN:path.join(root,'tests/fixtures/fake-codex.mjs'),FAKE_CODEX_LOG:log,FAKE_ITEMS_FILE:itemsFile,FAKE_SIGNED_OUT:signedOut?'1':'0'},stdio:['ignore','pipe','pipe']});
+ child.stdout.on('data',d=>output+=d);child.stderr.on('data',d=>output+=d);
+ const stop=async()=>{if(child.exitCode!==null||child.signalCode)return;child.kill('SIGTERM');await Promise.race([new Promise(r=>child.once('exit',r)),delay(2000).then(()=>child.kill('SIGKILL'))])};t.after(stop);
+ const get=async()=>{const r=await fetch(base+'/api/state');assert.equal(r.status,200);return r.json()};
+ const post=async(url,data,headers={})=>{const res=await fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json','X-Rewster-Request':'1',Origin:base,...headers},body:JSON.stringify(data)});return {status:res.status,body:await res.json()}};
+ await until(async()=>{try{return (await get()).connected}catch{return false}},5000,()=>output);
+ return {dir,base,child,stop,get,post,log,output:()=>output};
+}
+async function until(fn,ms=6000,diagnostic=()=>undefined){const start=Date.now();while(Date.now()-start<ms){const value=await fn();if(value)return value;await delay(20)}throw Error('Condition timed out: '+JSON.stringify(await diagnostic()))}
+const intake=(f,prompt,key)=>f.post('/api/intake',{messages:[prompt],requestKey:key});
+
+test('fresh install state and served UI are portable',async t=>{
+ const f=await fixture(t),s=await f.get();assert.deepEqual(s.jobs,[]);assert.deepEqual(s.projects,[]);assert.equal(s.account.status,'signedIn');
+ for(const p of ['/','/app.js','/style.css']){const r=await fetch(f.base+p);assert.equal(r.status,200);assert.ok((await r.text()).length>100)}
+ assert.equal((await fetch(f.base+'/.local/state.json')).status,404);
+});
+
+test('50 HTTP intakes persist, retry idempotently, reject conflicts, and survive restart',async t=>{
+ const f=await fixture(t);assert.equal((await f.post('/api/settings',{paused:true})).status,200);
+ const start=performance.now();const replies=await Promise.all(Array.from({length:50},(_,i)=>intake(f,`Request ${i}`,`http-burst-${i}`)));
+ assert.ok(replies.every(r=>r.status===202));assert.equal(new Set(replies.flatMap(r=>r.body.ids)).size,50);const elapsed=performance.now()-start;
+ assert.ok((await f.get()).jobs.every(j=>j.status==='queued'));
+ const retry=await intake(f,'Request 0','http-burst-0');assert.deepEqual(retry.body.ids,replies[0].body.ids);
+ assert.equal((await intake(f,'Changed','http-burst-0')).status,400);assert.equal((await f.get()).jobs.length,50);
+ await f.stop();const next=await fixture(t,{dir:f.dir});assert.equal((await next.get()).jobs.length,50);assert.equal((await next.get()).settings.paused,true);
+ console.log(`50 concurrent HTTP intake receipts: ${elapsed.toFixed(1)}ms (fixture, no model inference)`);
+});
+
+test('queue dispatch honors configured concurrency and drains 50 requests',async t=>{
+ const f=await fixture(t);await f.post('/api/settings',{paused:true,concurrency:3});
+ const r=await f.post('/api/intake',{messages:Array.from({length:50},(_,i)=>'Perform fixture task '+i),requestKey:'dispatch-burst'});assert.equal(r.status,202);
+ await f.post('/api/settings',{paused:false});let maximum=0;
+ await until(async()=>{const s=await f.get();const active=s.jobs.filter(j=>['running','starting','review'].includes(j.status)).length;maximum=Math.max(maximum,active);assert.ok(active<=3,`Active count exceeded three: ${active}`);assert.ok(!s.jobs.some(j=>j.status==='failed'),JSON.stringify(s.jobs.filter(j=>j.status==='failed')));return s.jobs.every(j=>j.status==='completed')},15000,()=>f.get());
+ assert.ok(maximum>1);assert.equal((await f.get()).jobs.length,50);
+});
+
+test('queued, routing, running cancellation and terminal receipts remain coherent',async t=>{
+ const f=await fixture(t);await f.post('/api/settings',{paused:true});
+ const a=(await intake(f,'Queued cancel','cancel-queued')).body.ids[0];await f.post('/api/cancel',{id:a});assert.equal((await f.get()).jobs.find(j=>j.id===a).status,'cancelled');
+ await f.post('/api/settings',{paused:false});const b=(await intake(f,'[slow-route] cancel','cancel-routing')).body.ids[0];
+ await until(async()=>(await f.get()).jobs.find(j=>j.id===b).status==='routing');await f.post('/api/cancel',{id:b});await delay(650);assert.equal((await f.get()).jobs.find(j=>j.id===b).status,'cancelled');
+ const c=(await intake(f,'[hold] running stop','cancel-running')).body.ids[0];await until(async()=>(await f.get()).jobs.find(j=>j.id===c).status==='running');assert.equal((await f.post('/api/cancel',{id:c})).status,200);await until(async()=>(await f.get()).jobs.find(j=>j.id===c).status==='cancelled');
+ const d=(await intake(f,'Complete normally','cancel-terminal')).body.ids[0];await until(async()=>(await f.get()).jobs.find(j=>j.id===d).status==='completed');await f.post('/api/cancel',{id:d});assert.equal((await f.get()).jobs.find(j=>j.id===d).status,'completed');
+});
+
+test('pending approval persists in UI until answered and decline stops work',async t=>{
+ const f=await fixture(t);const id=(await intake(f,'[approval] Check approval','approval-test')).body.ids[0];
+ let s=await until(async()=>{const s=await f.get();return s.approvals.length?s:false});assert.equal(s.jobs.find(j=>j.id===id).status,'review');
+ assert.equal((await f.post('/api/approval',{id:s.approvals[0].id,decision:'invented'})).status,400);assert.equal((await f.get()).approvals.length,1);
+ assert.equal((await f.post('/api/approval',{id:s.approvals[0].id,decision:'decline'})).status,200);
+ await until(async()=>{const s=await f.get();return s.jobs.find(j=>j.id===id).status==='cancelled'&&s.approvals.length===0});
+ assert.equal((await f.post('/api/approval',{id:s.approvals[0].id,decision:'accept'})).status,400);
+});
+
+test('restart does not automatically replay an in-flight execution',async t=>{
+ const f=await fixture(t),id=(await intake(f,'[hold] restart recovery','restart-execution')).body.ids[0];
+ const started=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===id);return j.status==='running'&&j.turnId?j:false});
+ await f.stop();const next=await fixture(t,{dir:f.dir});const j=(await next.get()).jobs.find(j=>j.id===id);assert.equal(j.status,'uncertain');assert.equal(j.threadId,started.threadId);assert.equal(j.turnId,started.turnId);
+ assert.equal((await next.post('/api/retry',{id})).status,400);await delay(200);assert.equal((await next.get()).jobs.find(j=>j.id===id).status,'uncertain');
+});
+
+test('foreign origins, missing request header, invalid destinations and malformed batch are rejected',async t=>{
+ const f=await fixture(t),payload={messages:['Do a thing'],requestKey:'origin-check'};
+ assert.equal((await f.post('/api/intake',payload,{Origin:'https://malicious.invalid'})).status,403);
+ assert.equal((await fetch(f.base+'/api/intake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).status,403);
+ assert.equal((await f.post('/api/intake',{...payload,options:{projectId:'invented'}})).status,400);
+ assert.equal((await f.post('/api/intake',{...payload,options:{threadId:'invented'}})).status,400);
+ assert.equal((await f.post('/api/intake',{...payload,options:{model:'invented'}})).status,400);
+ assert.equal((await f.post('/api/intake',{...payload,messages:['valid','']})).status,400);assert.equal((await f.get()).jobs.length,0);
+});
+
+test('signed-out onboarding returns a login link without exposing account tokens',async t=>{
+ const f=await fixture(t,{signedOut:true}),s=await f.get();assert.equal(s.account.status,'signedOut');assert.deepEqual(s.jobs,[]);
+ const login=await f.post('/api/auth/login',{});assert.equal(login.status,200);assert.match(JSON.stringify(login.body),/https:\/\/auth.openai.com\/fixture-login/);
+ assert.ok(!/access_token|refresh_token|id_token/i.test(JSON.stringify(await f.get())));
+});
+
+test('explicit task continuation preserves thread identity and records a new turn',async t=>{
+ const f=await fixture(t);const id=(await intake(f,'First fixture request','continuation-first')).body.ids[0];
+ const first=await until(async()=>{const s=await f.get(),j=s.jobs.find(j=>j.id===id);return j.status==='completed'&&s.threads.some(t=>t.id===j.threadId)?j:false});
+ const history=await fetch(f.base+'/api/history?id='+encodeURIComponent(first.threadId));assert.equal(history.status,200);
+ const r=await f.post('/api/intake',{messages:['Continue this exact task'],requestKey:'continuation-next',options:{threadId:first.threadId}});assert.equal(r.status,202);
+ const next=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===r.body.ids[0]);return j.status==='completed'?j:false},6000,()=>f.get());
+ assert.equal(next.threadId,first.threadId);assert.notEqual(next.turnId,first.turnId);
+});
+
+test('late completion and approval from an older turn cannot overwrite the active continuation',async t=>{
+ const f=await fixture(t);const id=(await intake(f,'First task for stale-event test','stale-event-first')).body.ids[0];
+ const first=await until(async()=>{const s=await f.get(),j=s.jobs.find(j=>j.id===id);return j.status==='completed'&&s.threads.some(t=>t.id===j.threadId)?j:false});
+ const r=await f.post('/api/intake',{messages:['[stale-notification] [hold] Continue'],requestKey:'stale-event-next',options:{threadId:first.threadId}});assert.equal(r.status,202);
+ const next=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===r.body.ids[0]);return j.status==='running'&&j.turnId?j:false});await delay(150);
+ const s=await f.get();assert.equal(s.jobs.find(j=>j.id===next.id).status,'running');assert.equal(s.approvals.length,0);assert.notEqual(next.turnId,first.turnId);
+ await f.post('/api/cancel',{id:next.id});
+});
+
+test('concurrent login clicks create one provider flow and cancellation permits a new flow',async t=>{
+ const f=await fixture(t,{signedOut:true});const replies=await Promise.all(Array.from({length:10},()=>f.post('/api/auth/login',{})));
+ assert.ok(replies.every(r=>r.status===200),JSON.stringify(replies));assert.ok(replies.every(r=>r.body.loginId==='fixture-login'));
+ const calls=()=>fs.readFileSync(f.log,'utf8').trim().split('\n').map(l=>JSON.parse(l)).filter(m=>m.method==='account/login/start');assert.equal(calls().length,1);
+ assert.equal((await f.post('/api/auth/cancel',{})).status,200);assert.equal((await f.post('/api/auth/login',{})).status,200);assert.equal(calls().length,2);
+});
+
+test('50 separate HTTP intakes stay responsive while model routing is unfinished',async t=>{
+ const f=await fixture(t),start=performance.now();const replies=await Promise.all(Array.from({length:50},(_,i)=>intake(f,`[slow-route] [hold] Independent request ${i}`,`busy-intake-${i}`)));const elapsed=performance.now()-start;
+ assert.ok(replies.every(r=>r.status===202));assert.equal(new Set(replies.flatMap(r=>r.body.ids)).size,50);assert.ok(elapsed<10000,`Intake blocked for ${elapsed}ms`);
+ const s=await f.get();assert.equal(s.jobs.length,50);assert.ok(s.jobs.some(j=>j.status==='routing'));assert.ok(s.jobs.some(j=>j.status==='queued'));console.log(`50 separate receipts while routing unfinished: ${elapsed.toFixed(1)}ms`);
+});
+
+test('workspace identity and personal departments persist without changing task receipts',async t=>{
+ const f=await fixture(t);assert.deepEqual((await f.get()).departments,[]);
+ assert.equal((await f.post('/api/settings',{workspaceName:'Trey’s Studio',paused:true})).status,200);
+ assert.equal((await f.post('/api/departments',{name:'Photo Editing',keywords:'photoshop, lightroom'})).status,200);
+ const result=await f.post('/api/intake',{messages:['Retouch in Photoshop'],requestKey:'personal-photo',options:{department:'Photo Editing'}});assert.equal(result.status,202);
+ let state=await f.get();assert.deepEqual(state.departments,['Photo Editing']);assert.equal(state.jobs[0].department,'Photo Editing');
+ assert.equal((await f.post('/api/settings',{workspaceName:'<script>',concurrency:8})).status,400);assert.equal((await f.get()).settings.concurrency,4);
+ await f.stop();const next=await fixture(t,{dir:f.dir});state=await next.get();assert.equal(state.settings.workspaceName,'Trey’s Studio');assert.deepEqual(state.departments,['Photo Editing']);assert.equal(state.jobs[0].id,result.body.ids[0]);
+ await next.post('/api/settings',{paused:false});await until(async()=>(await next.get()).jobs[0].status==='completed');assert.equal((await next.get()).jobs[0].department,'Photo Editing');
+});
+
+test('photo upload and image-only intake pass actual local image bytes to Codex with durable receipts',async t=>{
+ const f=await fixture(t),png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+ const upload=await fetch(f.base+'/api/attachments?name=Reference.png',{method:'POST',headers:{'X-Rewster-Request':'1',Origin:f.base,'Content-Type':'image/png'},body:png});assert.equal(upload.status,201);const asset=await upload.json();
+ const image=await fetch(f.base+asset.url);assert.equal(image.headers.get('content-type'),'image/png');assert.deepEqual(Buffer.from(await image.arrayBuffer()),png);
+ const input={messages:[''],requestKey:'photo-only-receipt',options:{attachments:[asset.id]}};const r=await f.post('/api/intake',input);assert.equal(r.status,202);
+ const j=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===r.body.ids[0]);return j?.status==='completed'?j:false});assert.equal(j.attachments[0].id,asset.id);assert.equal(j.prompt,'');
+ const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse),turn=calls.find(c=>c.method==='turn/start'&&c.params.threadId===j.threadId);assert.equal(turn.params.input.length,1);assert.equal(turn.params.input[0].type,'localImage');assert.deepEqual(fs.readFileSync(turn.params.input[0].path),png);assert.deepEqual((await f.post('/api/intake',input)).body.ids,r.body.ids);
+ assert.equal((await f.post('/api/intake',{...input,messages:['first','second'],requestKey:'bad-photo-batch'})).status,400);assert.equal((await f.post('/api/intake',{...input,options:{attachments:['invented']},requestKey:'missing-photo'})).status,400);
+ assert.equal((await fetch(f.base+asset.url,{headers:{'Sec-Fetch-Site':'cross-site'}})).status,403);assert.equal((await fetch(f.base+'/api/media/invented')).status,404);
+ assert.equal((await fetch(f.base+'/api/attachments',{method:'POST',headers:{'X-Rewster-Request':'1',Origin:'https://evil.invalid'},body:png})).status,403);
+ const conversation=await fetch(f.base+'/api/conversation?id='+j.threadId);assert.equal(conversation.status,200);assert.ok((await conversation.json()).items.some(i=>i.role==='assistant'));
+});
+
+test('approval choices are validated, captured at intake, persisted and applied to resumed turns',async t=>{
+ const f=await fixture(t);assert.equal((await f.get()).settings.approvalMode,'manual');
+ assert.equal((await f.post('/api/settings',{approvalMode:'anything',paused:true})).status,400);
+ assert.equal((await f.get()).settings.paused,false);
+ await f.post('/api/settings',{approvalMode:'auto-review',paused:true});
+ const queued=await intake(f,'Use automatic reviews','mode-queued');
+ await f.post('/api/settings',{approvalMode:'full-auto'});
+ assert.equal((await f.get()).jobs.find(j=>j.id===queued.body.ids[0]).approvalMode,'auto-review');
+ await f.post('/api/settings',{paused:false});
+ await until(async()=>(await f.get()).jobs[0]?.status==='completed');
+ const first=(await f.get()).jobs[0];
+ const second=await f.post('/api/intake',{messages:['Continue with full auto'],requestKey:'mode-followup',options:{threadId:first.threadId}});
+ await until(async()=>(await f.get()).jobs.find(j=>j.id===second.body.ids[0])?.status==='completed');
+ const rpc=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse);
+ const turns=rpc.filter(r=>r.method==='turn/start'&&r.params.clientUserMessageId);
+ assert.equal(turns[0].params.approvalsReviewer,'auto_review');assert.equal(turns[0].params.approvalPolicy,'on-request');assert.equal(turns[0].params.sandboxPolicy.type,'workspaceWrite');
+ assert.equal(turns[1].params.approvalsReviewer,'user');assert.equal(turns[1].params.approvalPolicy,'never');assert.deepEqual(turns[1].params.sandboxPolicy,{type:'dangerFullAccess'});
+ const resumed=rpc.find(r=>r.method==='thread/resume');assert.equal(resumed.params.sandbox,'danger-full-access');
+ const routers=rpc.filter(r=>r.method==='thread/start'&&r.params.ephemeral);assert.ok(routers.every(r=>r.params.sandbox==='read-only'&&r.params.approvalPolicy==='never'));
+ await f.stop();const restarted=await fixture(t,{dir:f.dir});const s=await restarted.get();assert.equal(s.settings.approvalMode,'full-auto');assert.deepEqual(s.jobs.map(j=>j.approvalMode),['auto-review','full-auto']);
+});
+
+test('selecting full auto never answers an already-pending manual request',async t=>{
+ const f=await fixture(t);await intake(f,'Please wait [approval]','manual-pending');
+ await until(async()=>(await f.get()).approvals.length===1);
+ const before=await f.get();await f.post('/api/settings',{approvalMode:'full-auto'});
+ const after=await f.get();assert.equal(after.jobs[0].approvalMode,'manual');assert.equal(after.jobs[0].status,'review');assert.equal(after.approvals[0].id,before.approvals[0].id);
+ await f.post('/api/approval',{id:after.approvals[0].id,decision:'decline'});
+ await until(async()=>(await f.get()).jobs[0].status==='cancelled');
+});
+
+test('update handoff refuses active work and shuts down only after the queue is idle',async t=>{
+ const f=await fixture(t);await f.post('/api/settings',{paused:true});await intake(f,'Queued update guard','update-guard');
+ const blocked=await f.post('/api/update/prepare',{});assert.equal(blocked.status,409);assert.equal(blocked.body.pending,1);assert.equal((await f.get()).jobs[0].status,'queued');
+ const job=(await f.get()).jobs[0];await f.post('/api/cancel',{id:job.id});const prepared=await f.post('/api/update/prepare',{});assert.equal(prepared.status,200);assert.equal(prepared.body.ready,true);
+ const late=await intake(f,'Arrived while updating','late-update');assert.equal(late.status,400);assert.match(late.body.error,/update/);
+ await until(()=>f.child.exitCode!==null||f.child.signalCode);assert.equal(JSON.parse(fs.readFileSync(path.join(f.dir,'state.json'),'utf8')).jobs.length,1);
+});
+
+ test('conversation download serves the registered file and rejects foreign origins and unknown ids',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'output-download-')),file=path.join(dir,'Download for Trey.zip'),itemsFile=path.join(dir,'items.json');
+ const content=Buffer.from('fixture archive bytes');fs.writeFileSync(file,content);fs.writeFileSync(itemsFile,JSON.stringify([{item:{id:'download',type:'agentMessage',text:`[Download for Trey](<${file}>)`},turnId:'output-turn'}]));
+ const f=await fixture(t,{dir,itemsFile}),id=(await intake(f,'Share download','download-file')).body.ids[0];
+ const j=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===id);return j.status==='completed'?j:false});
+ const history=await (await fetch(f.base+'/api/conversation?id='+j.threadId)).json();const output=history.items.flatMap(i=>i.outputs||[]).find(o=>o.kind==='file');assert.ok(output);
+ const response=await fetch(f.base+output.downloadUrl);assert.equal(response.status,200);assert.match(response.headers.get('content-disposition'),/^attachment/);assert.deepEqual(Buffer.from(await response.arrayBuffer()),content);
+ assert.equal((await fetch(f.base+output.downloadUrl,{headers:{Origin:'https://foreign.invalid','Sec-Fetch-Site':'cross-site'}})).status,403);
+ assert.equal((await fetch(f.base+'/api/files/unknown')).status,404);
+ });

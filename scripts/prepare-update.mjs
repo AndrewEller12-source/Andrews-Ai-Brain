@@ -1,0 +1,21 @@
+// Prepare signed, immutable release assets. The private update key stays in Keychain.
+import fs from 'node:fs';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+const run=(bin,args,options={})=>execFileSync(bin,args,{encoding:'utf8',...options}).trim();
+const version=JSON.parse(fs.readFileSync('package.json')).version;
+const app=path.resolve(process.argv[2]||'/tmp/ai-task-manager-native-build/Build/Products/Release/Ai Task Manager.app');
+const sparkle=path.resolve(process.argv[3]||'/tmp/ai-task-manager-native-build/SourcePackages/artifacts/sparkle/Sparkle/bin');
+const output=path.resolve('dist',`publish-${version}`);fs.mkdirSync(output,{recursive:true});
+const plist=path.join(app,'Contents/Info.plist');
+if(run('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',plist])!==version)throw Error('Build version differs from source');
+run('/usr/bin/codesign',['--verify','--deep','--strict',app]);
+const archive=path.join(output,`Ai-Task-Manager-Mac-${version}.zip`);fs.rmSync(archive,{force:true});
+run('/usr/bin/ditto',['-c','-k','--sequesterRsrc','--keepParent',app,archive]);
+run(path.join(sparkle,'generate_appcast'),['--account','ai-task-manager-releases','--maximum-deltas','0','--download-url-prefix',`https://github.com/AndrewEller12-source/Andrews-Ai-Brain/releases/download/v${version}/`,output]);
+const source=path.join(output,`Ai-Task-Manager-Source-${version}.zip`);
+run('/usr/bin/git',['archive','--format=zip','--prefix=Ai-Task-Manager-Source/','-o',source,'HEAD']);
+const assets=fs.readdirSync(output).filter(f=>f.endsWith('.zip')||f==='appcast.xml');
+fs.writeFileSync(path.join(output,'SHA256SUMS.txt'),assets.map(f=>createHash('sha256').update(fs.readFileSync(path.join(output,f))).digest('hex')+'  '+f).join('\n')+'\n');
+console.log(output);

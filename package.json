@@ -1,0 +1,32 @@
+{
+  "name": "ai-task-manager",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "launch": "node scripts/launch.mjs",
+    "stop": "node scripts/stop.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "package": "node scripts/package-release.mjs",
+    "sdk:smoke": "node scripts/sdk-smoke.mjs",
+    "test:sdk": "node scripts/sdk-smoke.mjs",
+    "test:app": "node scripts/app-smoke.mjs",
+    "package:mac": "node scripts/package-mac.mjs",
+    "verify:mac": "node scripts/verify-mac-package.mjs",
+    "apple:stage": "node scripts/stage-apple-runtime.mjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@openai/codex": "0.153.4",
+    "@openai/codex-sdk": "0.153.4",
+    "gsap": "^3.15.0"
+  },
+  "devDependencies": {
+    "jsdom": "30.0.1"
+  },
+  "version": "0.7.0",
+  "description": "Local Codex-powered agent workspace"
+}
