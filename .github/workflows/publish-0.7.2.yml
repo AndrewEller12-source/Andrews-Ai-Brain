@@ -1,0 +1,43 @@
+name: Publish verified 0.7.2
+on:
+  push:
+    paths: ['.github/workflows/publish-0.7.2.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.7.2.zip Ai-Task-Manager-Source-0.7.2.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://animal-avoid-basketball-employed.trycloudflare.com/$f" -o "$f"
+          done
+          echo '6134441f08b0eb5cf7ddd61c516dd1c8342e670a0b21e324ec5f3589a6d6ae89  Ai-Task-Manager-Mac-0.7.2.zip' | sha256sum -c -
+          echo '6aaaead7d83a613850c32d5e55e2a122571ecacb5f1a1f80253e3f673b506e52  Ai-Task-Manager-Source-0.7.2.zip' | sha256sum -c -
+          echo '4e0f04cddd35ed7d4635ac83c4c46dbad2b886e94cfedc21838c72e7a1a432ce  appcast.xml' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - name: Publish signed Mac update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create v0.7.2 assets/* --title 'Ai Task Manager 0.7.2' --latest --notes 'Fixes missing app-created and archived chats in history, fills message gaps after inactivity, prevents stale saved replies and snapshots from overwriting current messages, and restores syncing after timeouts or waking the app. Adds Refresh messages and Latest messages controls. Signed in-app Mac update; editable source included.'
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          unzip -q assets/Ai-Task-Manager-Source-0.7.2.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Fix chat history and live synchronization in 0.7.2'
+          git push
