@@ -9,9 +9,9 @@ import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 async function unusedPort(){const s=net.createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const port=s.address().port;await new Promise(r=>s.close(r));return port}
-async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http-')),signedOut=false,itemsFile=''}={}){
+async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http-')),signedOut=false,itemsFile='',catalogFile=''}={}){
  const port=await unusedPort(),base=`http://127.0.0.1:${port}`,log=path.join(dir,'rpc.jsonl');let output='';
- const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PATH:path.dirname(process.execPath)+path.delimiter+process.env.PATH,PORT:String(port),REWSTER_DATA_DIR:dir,REWSTER_DESKTOP:'0',CODEX_BIN:path.join(root,'tests/fixtures/fake-codex.mjs'),FAKE_CODEX_LOG:log,FAKE_ITEMS_FILE:itemsFile,FAKE_SIGNED_OUT:signedOut?'1':'0'},stdio:['ignore','pipe','pipe']});
+ const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PATH:path.dirname(process.execPath)+path.delimiter+process.env.PATH,PORT:String(port),REWSTER_DATA_DIR:dir,REWSTER_DESKTOP:'0',CODEX_BIN:path.join(root,'tests/fixtures/fake-codex.mjs'),FAKE_CODEX_LOG:log,FAKE_ITEMS_FILE:itemsFile,FAKE_CATALOG_FILE:catalogFile,FAKE_SIGNED_OUT:signedOut?'1':'0'},stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',d=>output+=d);child.stderr.on('data',d=>output+=d);
  const stop=async()=>{if(child.exitCode!==null||child.signalCode)return;child.kill('SIGTERM');await Promise.race([new Promise(r=>child.once('exit',r)),delay(2000).then(()=>child.kill('SIGKILL'))])};t.after(stop);
  const get=async()=>{const r=await fetch(base+'/api/state');assert.equal(r.status,200);return r.json()};
@@ -192,3 +192,11 @@ test('update handoff refuses active work and shuts down only after the queue is 
  assert.equal((await fetch(f.base+output.downloadUrl,{headers:{Origin:'https://foreign.invalid','Sec-Fetch-Site':'cross-site'}})).status,403);
  assert.equal((await fetch(f.base+'/api/files/unknown')).status,404);
  });
+
+test('history discovers archived chats and preserves the catalog during restart',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'all-chat-history-')),catalogFile=path.join(dir,'catalog.json');
+ fs.writeFileSync(catalogFile,JSON.stringify([{id:'active-chat',name:'Active chat',updatedAt:1},{id:'archived-chat',name:'Archived chat',archived:true,updatedAt:2}]));
+ const f=await fixture(t,{dir,catalogFile});let s=await f.get();assert.deepEqual(s.threads.map(t=>t.id).sort(),['active-chat','archived-chat']);assert.equal(s.threads.find(t=>t.id==='archived-chat').archived,true);
+ const rpc=fs.readFileSync(f.log,'utf8').split('\n').filter(Boolean).map(l=>JSON.parse(l)).filter(m=>m.method==='thread/list');assert.ok(rpc.some(m=>m.params.archived===true));assert.ok(rpc.every(m=>Array.isArray(m.params.modelProviders)&&m.params.modelProviders.length===0));
+ await f.stop();fs.writeFileSync(catalogFile,'[]');const next=await fixture(t,{dir,catalogFile});s=await next.get();assert.ok(s.threads.some(t=>t.id==='active-chat'&&t.catalogMissing));assert.ok(s.threads.some(t=>t.id==='archived-chat'));
+});

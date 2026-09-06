@@ -25,7 +25,7 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
  case 'account/login/start':return setTimeout(()=>ok({type:'chatgpt',loginId:'fixture-login',authUrl:'https://auth.openai.com/fixture-login'}),60);
  case 'account/login/cancel':return ok({status:'canceled'});
  case 'account/logout':return ok({});
- case 'thread/list':return ok({data:[...(process.env.FAKE_CATALOG_FILE?JSON.parse(fs.readFileSync(process.env.FAKE_CATALOG_FILE,'utf8')):[]),...[...threads.values()].filter(t=>!t.ephemeral).map(t=>({id:t.id,name:t.name,preview:'Fixture task',cwd:t.cwd,path:'',status:{type:t.turn?.status==='inProgress'?'active':'idle'},updatedAt:Date.now()/1000,ephemeral:false}))],nextCursor:null});
+ case 'thread/list':return ok({data:[...(process.env.FAKE_CATALOG_FILE?JSON.parse(fs.readFileSync(process.env.FAKE_CATALOG_FILE,'utf8')):[]),...[...threads.values()].filter(t=>!t.ephemeral).map(t=>({id:t.id,name:t.name,preview:'Fixture task',cwd:t.cwd,path:'',status:{type:t.turn?.status==='inProgress'?'active':'idle'},updatedAt:Date.now()/1000,ephemeral:false}))].filter(t=>!!t.archived===!!p.archived),nextCursor:null});
  case 'thread/start':{const t={id:'fixture-thread-'+(++serial),cwd:p.cwd,ephemeral:p.ephemeral,turn:null};threads.set(t.id,t);return ok({thread:t})}
  case 'thread/name/set':threads.get(p.threadId).name=p.name;return ok({});
  case 'thread/resume':{if(!threads.has(p.threadId)&&process.env.FAKE_CATALOG_FILE){const saved=JSON.parse(fs.readFileSync(process.env.FAKE_CATALOG_FILE,'utf8')).find(t=>t.id===p.threadId);if(saved)threads.set(p.threadId,{...saved,turn:null});}return ok({thread:threads.get(p.threadId)});}

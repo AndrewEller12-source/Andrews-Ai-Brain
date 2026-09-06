@@ -54,7 +54,7 @@ test('portable launcher starts, detects existing app, and stops only its own hea
   const source=path.join(temporary,'app'),data=path.join(temporary,'data');
   fs.mkdirSync(path.join(source,'scripts'),{recursive:true});
   for(const file of ['runtime.mjs','upgrade.mjs','package.json','scripts/launch.mjs','scripts/stop.mjs'])fs.copyFileSync(path.join(appRoot,file),path.join(source,file));
-  fs.writeFileSync(path.join(source,'server.mjs'),`import http from 'node:http'; const server=http.createServer((req,res)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify({app:'rewster-command',pid:process.pid,version:'0.7.1'}));});server.listen(Number(process.env.PORT),'127.0.0.1');process.on('SIGTERM',()=>server.close(()=>process.exit(0)));`);
+  fs.writeFileSync(path.join(source,'server.mjs'),`import http from 'node:http'; const server=http.createServer((req,res)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify({app:'rewster-command',pid:process.pid,version:'0.7.2'}));});server.listen(Number(process.env.PORT),'127.0.0.1');process.on('SIGTERM',()=>server.close(()=>process.exit(0)));`);
   const http=await import('node:http');
   const probe=http.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
   const env={...process.env,PORT:String(port),REWSTER_DATA_DIR:data,REWSTER_NO_OPEN:'1'};

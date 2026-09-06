@@ -200,3 +200,42 @@ test('file links become usable downloads and Outputs keeps their labels and loca
  a.$('#outputs-tab').click();assert.equal(a.$('#outputs-tab').getAttribute('aria-selected'),'true');assert.match(a.$('.outputs-page').textContent,/Download for Trey/);assert.ok(a.$('.outputs-page a[href="http://127.0.0.1:4100/"]'));a.update(state);assert.equal(a.$('#outputs-tab').getAttribute('aria-selected'),'true');
  }finally{a.close()}
 });
+
+test('history includes dashboard-created chats once per thread, including completed work',async()=>{
+ const thread={id:'saved-chat',title:'Saved design',department:'Engineering',recordedStatus:'completed'};
+ const jobs=[1,2].map(n=>({id:'request-'+n,threadId:thread.id,title:thread.title,department:'Engineering',status:'completed',createdAt:n}));
+ const a=app(snapshot({threads:[thread],jobs}));try{a.$('[data-view="history"]').click();assert.equal(a.w.document.querySelectorAll('tbody tr').length,1);assert.match(a.$('tbody').textContent,/Saved design/);a.$('tbody tr').click();await tick();assert.ok(a.$('.chat-page'));}finally{a.close()}
+});
+test('catch-up retrieves all missed pages and retains the oldest history cursor',async()=>{
+ let rows=Array.from({length:90},(_,n)=>({id:'m'+n,turnId:'t'+n,role:'assistant',text:'Message '+n,images:[]}));
+ const state=snapshot({threads:[chatThread]});
+ const a=app(state,async url=>{if(!url.startsWith('/api/conversation'))return state;const cursor=new URL(url,'http://localhost').searchParams.get('cursor');const end=cursor?rows.findIndex(i=>i.id===cursor):rows.length,start=Math.max(0,end-50);return {items:rows.slice(start,end),nextCursor:start?rows[start].id:null};});
+ try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await tick();a.$('#chat-older').click();await tick();assert.equal(a.w.document.querySelectorAll('.chat-message').length,90);
+ rows.push(...Array.from({length:125},(_,i)=>({id:'m'+(90+i),turnId:'t'+(90+i),role:'assistant',text:'Message '+(90+i),images:[]})));
+ await a.w.loadConversation();assert.equal(a.w.document.querySelectorAll('.chat-message').length,215);assert.equal(a.$('.chat-message').dataset.messageId,'m0');assert.equal([...a.w.document.querySelectorAll('.chat-message')].at(-1).dataset.messageId,'m214');assert.equal(a.$('#chat-older'),null);
+ }finally{a.close()}
+});
+test('fresh history wins over stale saved job messages and responses',async()=>{
+ const state=snapshot({threads:[chatThread],jobs:[{id:'job',threadId:'design',turnId:'turn',title:'Design',status:'completed',response:'Old response',chatItems:[{id:'answer',turnId:'turn',role:'assistant',text:'Old response',images:[]}]}]});
+ const a=app(state,async url=>url.startsWith('/api/conversation')?{items:[{id:'answer',turnId:'turn',role:'assistant',text:'Latest response',images:[]}],nextCursor:null}:state);
+ try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await tick();assert.match(a.$('.chat-messages').textContent,/Latest response/);assert.doesNotMatch(a.$('.chat-messages').textContent,/Old response/);}finally{a.close()}
+});
+test('a late HTTP snapshot cannot overwrite a newer event update',async()=>{
+ let resolve;const a=app(snapshot(),url=>new Promise(r=>resolve=r));try{const pending=a.w.refreshState();a.update(snapshot({settings:{workspaceName:'New event',concurrency:4}}));resolve(snapshot({settings:{workspaceName:'Old snapshot',concurrency:4}}));await pending;assert.equal(a.$('#workspace-name').textContent,'New event');}finally{a.close()}
+});
+test('returning to the app refreshes the selected conversation',async()=>{
+ let text='Old message';const state=snapshot({threads:[chatThread]});const a=app(state,async url=>url.startsWith('/api/conversation')?{items:[{id:'answer',turnId:'turn',role:'assistant',text,images:[]}],nextCursor:null}:state);
+ try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await tick();text='Current message';a.w.dispatchEvent(new a.w.Event('focus'));await tick();assert.match(a.$('.chat-messages').textContent,/Current message/);}finally{a.close()}
+});
+
+test('timed-out message refresh releases the loading guard so the next refresh succeeds',async()=>{
+ let stalled=true;const state=snapshot({threads:[chatThread]});const a=app(state,async url=>url.startsWith('/api/conversation')?(stalled?new Promise(()=>{}):{items:[{id:'recovered',turnId:'turn',role:'assistant',text:'Recovered reply',images:[]}],nextCursor:null}):state);
+ const original=a.w.setTimeout.bind(a.w);a.w.setTimeout=(fn,ms)=>original(fn,ms===12000?10:ms);
+ try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await new Promise(r=>setTimeout(r,30));assert.match(a.$('.chat-messages').textContent,/timed out/);stalled=false;await a.w.loadConversation();assert.match(a.$('.chat-messages').textContent,/Recovered reply/);assert.doesNotMatch(a.$('.chat-messages').textContent,/timed out/);}finally{a.close()}
+});
+
+test('late partial streaming text cannot shorten a newer persisted reply',async()=>{
+ const state=snapshot({threads:[{...chatThread,activity:{state:'running',source:'desktop',turnId:'turn'}}],jobs:[{id:'job',threadId:'design',turnId:'turn',title:'Design',department:'Engineering',status:'running',liveItemId:'answer',liveText:'Current'}]});
+ const a=app(state,async url=>url.startsWith('/api/conversation')?{items:[{id:'answer',turnId:'turn',role:'assistant',text:'Current complete reply',images:[]}],nextCursor:null}:state);
+ try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await tick();assert.match(a.$('.message-assistant').textContent,/Current complete reply/);}finally{a.close()}
+});
