@@ -23,3 +23,15 @@ test('custom departments are canonical, validated and accept new real specialtie
  const route={department:'3D Animation',tier:'standard',kind:'task',confidence:.9,reason:'Animation request',title:'Animate logo'};assert.equal(validateRoute(route,[],[]).department,'3D Animation');
  assert.throws(()=>validateRoute({...route,department:'<script>'},[],[]));assert.throws(()=>addDepartment(data,{name:'Editorial',keywords:['wrong type']}));
 });
+
+test('departments evolve from concrete work while preserving explicit user assignments',async()=>{
+ const {evolveOrganization}=await import('../organization.mjs');const data={settings:{},customDepartments:[],jobs:[{threadId:'print',department:'Engineering',prompt:'Print this STL on the Bambu',options:{}}],overrides:{print:'Engineering',manual:'My Studio'}};
+ const threads=[{id:'print',title:'Bambu print lab',department:'Engineering'},{id:'home',title:'Connect smart home LED lights',department:'Engineering'},{id:'manual',title:'Photoshop edits',department:'My Studio'}];
+ evolveOrganization(data,threads,1000);assert.deepEqual(threads.map(t=>t.department),['3D Printing','Smart Home','My Studio']);assert.equal(data.jobs[0].department,'3D Printing');assert.equal(data.overrides.print,'3D Printing');assert.equal(Object.keys(data.departmentManagers).length,3);assert.equal(data.departmentManagers['Smart Home'].jobId,undefined);
+ data.settings.autoDepartments=false;threads[1].title='Photoshop';evolveOrganization(data,threads,2000);assert.equal(threads[1].department,'Smart Home');
+});
+
+
+test('model-created specialty departments survive later refreshes',async()=>{
+ const {evolveOrganization}=await import('../organization.mjs');const data={settings:{},customDepartments:[],jobs:[{threadId:'sound',department:'Sound Design',prompt:'Build an audio app',options:{}}],overrides:{sound:'Sound Design'}};const threads=[{id:'sound',title:'Build an audio app',department:'Sound Design'}];evolveOrganization(data,threads);assert.equal(threads[0].department,'Sound Design');
+});

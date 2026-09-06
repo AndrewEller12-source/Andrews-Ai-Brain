@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 async function unusedPort(){const s=net.createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const port=s.address().port;await new Promise(r=>s.close(r));return port}
-async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http-')),signedOut=false,itemsFile='',catalogFile=''}={}){
+async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http-')),signedOut=false,itemsFile='',catalogFile='',autoManagers=false}={}){
  const port=await unusedPort(),base=`http://127.0.0.1:${port}`,log=path.join(dir,'rpc.jsonl');let output='';
  const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PATH:path.dirname(process.execPath)+path.delimiter+process.env.PATH,PORT:String(port),REWSTER_DATA_DIR:dir,REWSTER_DESKTOP:'0',CODEX_BIN:path.join(root,'tests/fixtures/fake-codex.mjs'),FAKE_CODEX_LOG:log,FAKE_ITEMS_FILE:itemsFile,FAKE_CATALOG_FILE:catalogFile,FAKE_SIGNED_OUT:signedOut?'1':'0'},stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',d=>output+=d);child.stderr.on('data',d=>output+=d);
@@ -17,6 +17,7 @@ async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http
  const get=async()=>{const r=await fetch(base+'/api/state');assert.equal(r.status,200);return r.json()};
  const post=async(url,data,headers={})=>{const res=await fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json','X-Rewster-Request':'1',Origin:base,...headers},body:JSON.stringify(data)});return {status:res.status,body:await res.json()}};
  await until(async()=>{try{return (await get()).connected}catch{return false}},5000,()=>output);
+ await post('/api/settings',{autoManagers});
  return {dir,base,child,stop,get,post,log,output:()=>output};
 }
 async function until(fn,ms=6000,diagnostic=()=>undefined){const start=Date.now();while(Date.now()-start<ms){const value=await fn();if(value)return value;await delay(20)}throw Error('Condition timed out: '+JSON.stringify(await diagnostic()))}
@@ -199,4 +200,15 @@ test('history discovers archived chats and preserves the catalog during restart'
  const f=await fixture(t,{dir,catalogFile});let s=await f.get();assert.deepEqual(s.threads.map(t=>t.id).sort(),['active-chat','archived-chat']);assert.equal(s.threads.find(t=>t.id==='archived-chat').archived,true);
  const rpc=fs.readFileSync(f.log,'utf8').split('\n').filter(Boolean).map(l=>JSON.parse(l)).filter(m=>m.method==='thread/list');assert.ok(rpc.some(m=>m.params.archived===true));assert.ok(rpc.every(m=>Array.isArray(m.params.modelProviders)&&m.params.modelProviders.length===0));
  await f.stop();fs.writeFileSync(catalogFile,'[]');const next=await fixture(t,{dir,catalogFile});s=await next.get();assert.ok(s.threads.some(t=>t.id==='active-chat'&&t.catalogMissing));assert.ok(s.threads.some(t=>t.id==='archived-chat'));
+});
+
+
+test('automatic manager reviews run as real read-only tasks and never recurse',async t=>{
+ const f=await fixture(t,{autoManagers:true});const id=(await intake(f,'Build a fixture dashboard','manager-source')).body.ids[0];
+ const job=await until(async()=>{const s=await f.get();return s.jobs.find(j=>j.sourceJobId===id&&j.status==='completed')},12000,()=>f.get());
+ const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse);
+ const name=calls.find(c=>c.method==='thread/name/set'&&c.params.threadId===job.threadId);
+ assert.match(name.params.name,/manager/);const start=calls.filter(c=>c.method==='thread/start'&&!c.params.ephemeral).at(-1);assert.equal(start.params.sandbox,'read-only');assert.equal(start.params.approvalPolicy,'never');
+ const turn=calls.find(c=>c.method==='turn/start'&&c.params.threadId===job.threadId);assert.deepEqual(turn.params.sandboxPolicy,{type:'readOnly'});assert.equal(turn.params.approvalPolicy,'never');
+ assert.ok((await f.get()).managers.some(m=>m.threadId===job.threadId&&m.status==='completed'));await delay(400);assert.equal((await f.get()).jobs.filter(j=>j.managerForDepartment).length,1);
 });

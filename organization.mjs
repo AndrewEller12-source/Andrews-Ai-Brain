@@ -9,6 +9,10 @@ export function classify(text='', custom=[]) {
  const s=String(text).toLowerCase();
  const rule=custom.find(d=>d.keywords?.some(k=>s.includes(k.toLowerCase())));if(rule)return rule.name;
  for(const [name,pattern] of [
+  ['3D Printing',/3d.?print|bambu|stl\b|filament|print.lab|prototype.{0,25}print/],
+  ['Smart Home',/smart.home|home assistant|homekit|led lights|tailscale|device.control/],
+  ['AI Systems',/ai.{0,15}agent|agent.{0,15}dashboard|rewster ai|task manager|codex sdk|agent orchestrat/],
+  ['Web Development',/website|landing.page|web.app|wordpress|shopify|next\.js/],
   ['Photo Editing',/photoshop|lightroom|retouch|photo editing|edit.{0,20}photo|remove.{0,20}background/],
   ['Design',/illustrator|figma|graphic design|logo design|branding|typography/],
   ['Video Production',/video edit|premiere|davinci|after effects|film edit/],
@@ -45,4 +49,30 @@ export function migrateOrganization(data){
  if(data.organizationVersion===1)return;
  for(const j of data.jobs||[])if(!data.overrides?.[j.threadId]&&!j.options?.department)j.department=classify(j.prompt||j.title,data.customDepartments);
  data.organizationVersion=1;
+}
+
+
+export function evolveOrganization(data,threads,now=Date.now()){
+ data.settings.autoDepartments??=true;data.settings.autoManagers??=true;
+ data.organizationEnabledAt??=now;data.departmentManagers??={};data.manualDepartments??={};
+ let changed=false;
+ for(const t of threads){
+  const jobs=(data.jobs||[]).filter(j=>j.threadId===t.id&&!j.managerForDepartment),last=jobs.at(-1);
+  const explicit=data.manualDepartments[t.id]||last?.options?.department;
+  const override=data.overrides?.[t.id];
+  // Legacy overrides with no matching routed request may be manual assignments.
+  const broad=['General','Engineering','Research','Writing','Growth','Operations','Purchasing','Finance'];
+  const routedSpecialty=last?.department&&!broad.includes(last.department)?last.department:null;
+  const preserved=explicit||routedSpecialty||(override&&(!last||override!==last.department)?override:null);
+  if(data.settings.autoDepartments&&!preserved){
+   const titleClass=classify(t.title,data.customDepartments),specific=titleClass!=='General';
+   const candidate=specific?titleClass:classify(last?.prompt||t.preview||t.title,data.customDepartments);
+   const name=candidate==='General'?t.department:candidate;
+   if(name&&name!==t.department){t.department=name;changed=true;for(const j of jobs)if(!j.options?.department)j.department=name;if(override)data.overrides[t.id]=name;}
+  }else if(preserved)t.department=preserved;
+  if(t.department&&!data.departmentManagers[t.department]&&!['__proto__','constructor','prototype'].includes(t.department)){
+   data.departmentManagers[t.department]={department:t.department,createdAt:now,lastReviewedAt:0};changed=true;
+  }
+ }
+ return changed;
 }

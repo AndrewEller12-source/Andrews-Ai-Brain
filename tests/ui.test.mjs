@@ -279,3 +279,15 @@ test('history shows new native activity on an older dashboard-created thread and
  const a=app(state,async url=>url.startsWith('/api/conversation')?{items:[],nextCursor:null}:state);
  try{a.$('[data-view="history"]').click();assert.match(a.$('tbody tr').textContent,/Real chat title.*Latest native reply.*GPT 6-Astra.*Just now/);assert.doesNotMatch(a.$('tbody tr').textContent,/Old cached answer|Router explanation/);a.$('tbody tr').click();await tick();assert.ok(a.calls.some(c=>c.url==='/api/conversation?id=thread'));}finally{a.close()}
 });
+
+
+test('large department maps paginate readable groups and keep every agent reachable',()=>{
+ const threads=Array.from({length:53},(_,i)=>({id:'u'+i,title:'Task '+i,department:'Engineering',cwd:'/projects/p'+String(i).padStart(2,'0'),updatedAt:i+1,activity:{state:'completed',source:'events'}}));const a=app(snapshot({departments:['Engineering'],threads}));
+ assert.ok(a.w.document.body.classList.contains('universe-expanded'));a.$('.graph-link[data-focus-department="Engineering"]').dispatchEvent(new a.w.Event('click'));
+ assert.equal(a.w.document.querySelectorAll('.project-node').length,4);assert.equal(a.w.document.querySelectorAll('.task-node').length,4);assert.match(a.$('.map-pages').textContent,/1 \/ 14/);a.$('#map-next').click();assert.match(a.$('.map-pages').textContent,/2 \/ 14/);assert.ok(parseInt(a.$('#zoom-value').textContent)>=65);
+ a.$('#universe-size').click();assert.equal(a.w.document.body.classList.contains('universe-expanded'),false);a.close();
+});
+test('manager settings expose real task identity without counting standby slots as live',async()=>{
+ const jobs=[{id:'manager-job',threadId:'manager-thread',managerForDepartment:'Design',title:'Design manager review',status:'running',department:'Design'}];const a=app(snapshot({departments:['Design'],jobs,managers:[{department:'Design',title:'Design manager',jobId:'manager-job',threadId:'manager-thread',status:'running',model:'gpt-5.4'}]}));
+ a.$('[data-view="settings"]').click();assert.match(a.$('.manager-directory').textContent,/Open manager task/);const toggle=a.$('[data-organization-setting="autoManagers"]');toggle.checked=false;toggle.dispatchEvent(new a.w.Event('change'));await tick();assert.deepEqual(a.calls.find(c=>c.url==='/api/settings').body,{autoManagers:false});a.close();
+});

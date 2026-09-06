@@ -4,8 +4,6 @@ Your Codex account, organized as a personal work universe. Click the workspace n
 
 All preferences and work history stay in the existing local application data directory when upgrading. Release packages contain no account credentials or personal department settings. The native Xcode project and dashboard source remain editable.
 
-# Ai Task Manager
-
 A local dashboard powered by the Codex app-server and official Codex SDK. One inbox routes tasks to projects and available models; a department graph shows live desktop and dashboard activity alongside recorded history. Requests are persisted before routing and dispatched through a bounded queue.
 
 See [APPLE-APPS.md](APPLE-APPS.md) for the editable Mac and iPhone apps, or [TREY-QUICKSTART.md](TREY-QUICKSTART.md) for the portable dashboard. Existing Rewster Command data and task history are preserved.
@@ -33,6 +31,14 @@ The pinned `@openai/codex` native CLI is preferred by default. `CODEX_BIN` overr
 - Pause dispatch prevents queued work from starting while already-running work continues.
 
 The graph connects departments, project folders, tasks and explicit subagents. Confirmed running desktop and dashboard tasks pulse along their branches. A brief amber flash means newly recorded subagent activity; it does not establish a running status. Unknown activity is counted separately. Completions carry the department, project and exact task/turn, persist across restarts, and remain unread until acknowledged.
+
+## Growing departments and managers
+
+The universe opens in an expanded view. Focus a department or project to see readable cards, use Previous/Next for larger teams, or use the branch directory to reach any task. Active and recent projects appear first. Completion counts remain available in the top bar.
+
+Automatic department discovery is on by default. The router may create a new specialty department for new work; explicit assignments and model-selected specialty names survive refreshes. Settings can disable automatic discovery.
+
+Each department gets a manager slot. A slot is standby, not a running agent. With automatic managers enabled, newly completed dashboard requests can launch a real read-only Codex review task using an available quick model. Reviews share the worker limit, run at most once per department per 15 minutes, and do not review other manager jobs. They use the signed-in account and its usage limits. Historical work is not bulk-reviewed on upgrade; Run first review explicitly reviews the latest completed dashboard request. The manager branch opens its real task, or settings before its first review. Native-only task history remains visible but does not automatically trigger these reviews.
 
 ## State and recovery
 

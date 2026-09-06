@@ -1,11 +1,12 @@
 import net from 'node:net';
+import {DesktopFrameDecoder} from './desktop-frames.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {EventEmitter} from 'node:events';
 // Read-only follower of the local Codex desktop stream. Never claims ownership or invokes a turn.
 // This versioned desktop IPC adapter fails closed when the installed protocol changes.
-const VERSION=11,MAX_FRAME=64*1024*1024;
+const VERSION=11;
 const scalarFields=new Set(['id','title','cwd','parentThreadId','agentNickname','latestModel','rolloutPath','resumeState']);
 const turnFields=new Set(['turnId','status','turnStartedAtMs','durationMs']);
 const flags=value=>Array.isArray(value)?value.filter(v=>typeof v==='string'):[];
@@ -50,8 +51,9 @@ export class DesktopObserver extends EventEmitter{
  connect(){if(this.closed||this.socket||!this.enabled)return;try{const st=fs.lstatSync(this.path),dir=fs.lstatSync(path.dirname(this.path));if(!st.isSocket()||st.uid!==process.getuid?.()||dir.uid!==process.getuid?.()||(dir.mode&0o022))throw Error('Desktop socket is not a private local user socket');}catch(e){this.error=e.code==='ENOENT'?'Open Codex desktop to connect live agents':e.message;return;}
   const socket=this.socket=net.connect(this.path);socket.setTimeout(15000);socket.on('connect',()=>this.send({type:'request',requestId:randomUUID(),method:'initialize',version:0,params:{clientType:'rewster-command-observer'}}));
   socket.on('timeout',()=>{if(!this.connected)socket.destroy(Error('Desktop initialization timed out'));});
-  socket.on('data',chunk=>{this.pending=Buffer.concat([this.pending,chunk]);try{while(this.pending.length>=4){const n=this.pending.readUInt32LE(0);if(!n||n>MAX_FRAME)throw Error('Desktop frame exceeds supported limit');if(this.pending.length<n+4)break;const m=JSON.parse(this.pending.subarray(4,n+4));this.pending=this.pending.subarray(n+4);this.receive(m);}}catch(e){socket.destroy(e);}});
-  socket.on('error',e=>{this.error=e.message;});socket.on('close',()=>{if(this.socket!==socket)return;this.socket=null;this.connected=false;this.clientId=null;this.pending=Buffer.alloc(0);this.lastSubscribe.clear();this.records.clear();this.emit('change');});
+  const decoder=this.decoder=new DesktopFrameDecoder(m=>this.receive(m),error=>socket.destroy(error));
+  socket.on('data',chunk=>decoder.push(chunk));
+  socket.on('error',e=>{this.error=e.message;});socket.on('close',()=>{if(this.socket!==socket)return;decoder.close();this.socket=null;this.connected=false;this.clientId=null;this.pending=Buffer.alloc(0);this.lastSubscribe.clear();this.records.clear();this.emit('change');});
  }
  send(m){if(!this.socket?.writable)return;const bytes=Buffer.from(JSON.stringify(m)),head=Buffer.alloc(4);head.writeUInt32LE(bytes.length);this.socket.write(Buffer.concat([head,bytes]));}
  follow(id,following=true){if(!this.connected)return;this.send({type:'broadcast',method:'thread-stream-following-changed',sourceClientId:this.clientId,version:1,params:{conversationId:id,hostId:'local',following}});this.lastSubscribe.set(id,Date.now());}
@@ -83,6 +85,6 @@ export class DesktopObserver extends EventEmitter{
   r.observedAt=Date.now();r.activity=desktopActivity(r.state,r.observedAt);this.records.set(id,r);this.emit('activity',{id,...r});this.emit('change');
  }
  get(id){const r=this.records.get(id);if(!this.connected||!r)return null;return {...r.state,entities:undefined,activity:r.activity};}
- status(){return {connected:this.connected,source:'desktop',protocolVersion:VERSION,observedThreads:this.records.size,error:this.error||null};}
+ status(){return {connected:this.connected,source:'desktop',protocolVersion:VERSION,observedThreads:this.records.size,largestFrameBytes:this.decoder?.largestFrame||0,error:this.error||null};}
  close(){this.closed=true;clearInterval(this.timer);for(const timer of this.resyncTimers.values())clearTimeout(timer);this.resyncTimers.clear();for(const id of this.wanted)this.follow(id,false);this.socket?.destroy();}
 }
