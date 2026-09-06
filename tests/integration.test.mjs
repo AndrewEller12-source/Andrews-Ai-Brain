@@ -23,6 +23,19 @@ async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http
 async function until(fn,ms=6000,diagnostic=()=>undefined){const start=Date.now();while(Date.now()-start<ms){const value=await fn();if(value)return value;await delay(20)}throw Error('Condition timed out: '+JSON.stringify(await diagnostic()))}
 const intake=(f,prompt,key)=>f.post('/api/intake',{messages:[prompt],requestKey:key});
 
+test('Rewster HTTP integration authenticates, returns exact live state and persists a worker message',async t=>{
+ const f=await fixture(t),token=fs.readFileSync(path.join(f.dir,'rewster-integration.token'),'utf8').trim();
+ assert.equal((await fetch(f.base+'/api/rewster/status')).status,401);
+ const headers={Authorization:'Bearer '+token};
+ const status=await (await fetch(f.base+'/api/rewster/status',{headers})).json();assert.equal(status.ok,true);assert.equal(status.connected,true);
+ const initial=await intake(f,'Say hello','rewster-initial');
+ const source=await until(async()=>{const s=await f.get();return s.jobs.find(j=>j.id===initial.body.ids[0]&&j.status==='completed')});
+ const payload={threadId:source.threadId,message:'Clarify the result',reason:'Owner asked for detail',requestKey:'rewster-http-message'};
+ const sent=await f.post('/api/rewster/message',payload,headers);assert.equal(sent.status,202,JSON.stringify(sent.body));assert.equal(sent.body.threadId,source.threadId);
+ const duplicate=await f.post('/api/rewster/message',payload,headers);assert.equal(duplicate.body.jobId,sent.body.jobId);
+ assert.equal((await f.post('/api/rewster/approve',{id:'anything'},headers)).status,404);
+});
+
 test('fresh install state and served UI are portable',async t=>{
  const f=await fixture(t),s=await f.get();assert.deepEqual(s.jobs,[]);assert.deepEqual(s.projects,[]);assert.equal(s.account.status,'signedIn');
  for(const p of ['/','/app.js','/style.css']){const r=await fetch(f.base+p);assert.equal(r.status,200);assert.ok((await r.text()).length>100)}
@@ -211,4 +224,19 @@ test('automatic manager reviews run as real read-only tasks and never recurse',a
  assert.match(name.params.name,/manager/);const start=calls.filter(c=>c.method==='thread/start'&&!c.params.ephemeral).at(-1);assert.equal(start.params.sandbox,'read-only');assert.equal(start.params.approvalPolicy,'never');
  const turn=calls.find(c=>c.method==='turn/start'&&c.params.threadId===job.threadId);assert.deepEqual(turn.params.sandboxPolicy,{type:'readOnly'});assert.equal(turn.params.approvalPolicy,'never');
  assert.ok((await f.get()).managers.some(m=>m.threadId===job.threadId&&m.status==='completed'));await delay(400);assert.equal((await f.get()).jobs.filter(j=>j.managerForDepartment).length,1);
+});
+
+test('universe HTTP lifecycle persists empty worlds and scopes router catalogs and continuations',async t=>{
+ const f=await fixture(t);await f.post('/api/settings',{paused:true});
+ const created=await f.post('/api/universes',{name:'Vending Business',description:'Vending routes and stock'});assert.equal(created.status,200);const universeId=created.body.id;
+ let state=await f.get();assert.deepEqual(state.universes[0].threadIds,[]);assert.deepEqual(state.universes[0].departments,[]);
+ const outside=await intake(f,'Unrelated work','outside-world');const receipt=await f.post('/api/intake',{messages:['Restock vending'],requestKey:'inside-world',options:{universeId}});assert.equal(receipt.status,202);
+ assert.equal((await f.post('/api/intake',{messages:['Bad world'],requestKey:'bad-world-id',options:{universeId:'missing'}})).status,400);
+ await f.post('/api/settings',{paused:false});
+ const done=await until(async()=>{const s=await f.get();return s.jobs.find(j=>j.id===receipt.body.ids[0]&&j.status==='completed')});
+ await until(async()=>{const s=await f.get();return s.universes[0].threadIds.includes(done.threadId)});
+ state=await f.get();assert.ok(state.jobs.some(j=>j.id===outside.body.ids[0]));assert.deepEqual(state.universes[0].jobIds,[done.id]);
+ const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse);const catalog=calls.filter(c=>c.method==='turn/start').map(c=>{try{return JSON.parse(c.params.input[0].text)}catch{return null}}).find(c=>c?.universe?.name==='Vending Business');assert.ok(catalog);assert.deepEqual(catalog.threads,[]);assert.deepEqual(catalog.projects,[]);
+ const follow=await f.post('/api/intake',{messages:['Continue here'],requestKey:'world-followup',options:{threadId:done.threadId}});assert.equal(follow.status,202);assert.equal((await f.get()).jobs.find(j=>j.id===follow.body.ids[0]).universeId,universeId);
+ await f.post('/api/settings',{paused:true});await f.stop();const next=await fixture(t,{dir:f.dir});assert.equal((await next.get()).universes[0].id,universeId);
 });

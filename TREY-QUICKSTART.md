@@ -59,3 +59,11 @@ The choice is saved on each new request, including follow-ups to existing tasks.
 The ☰ button collapses or expands navigation. **Hide map details** gives the universe more space; **Hide photos** gives the conversation more space. The − button minimizes task details and a header button reopens them. Layout choices stay on your device. Smaller text is enlarged, with a consistent dark ink, slate, and cyan palette.
 
 Approval behavior follows the [official Codex approval and security documentation](https://learn.chatgpt.com/docs/agent-approvals-security).
+
+## Separate universes
+
+Choose **All Codex** at the top to see your entire account, or choose **New universe** to start a focused workplace such as Vending Business or Design Studio. Give it a name and a short description. Leave existing work unchecked to start completely blank.
+
+Requests sent inside a universe stay there. Its departments grow from that work, and actual child agents follow their parent task. Each universe has its own manager records and master-chat draft. Manager reviews use the existing organization automation setting and your Codex account; standby records are not running agents.
+
+Use **Edit universe → Include existing work** to include individual tasks or projects. Including a project includes its existing and future tasks. This is organization within your account, not a separate account or file-access sandbox. Switching back to **All Codex** always shows the combined work.

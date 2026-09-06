@@ -5,8 +5,9 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 export const releaseFiles = [
+  'rewster-supervisor.mjs',
   'package.json','pnpm-lock.yaml','pnpm-workspace.yaml',
-  'server.mjs','bridge.mjs','core.mjs','organization.mjs','managers.mjs','upgrade.mjs','media.mjs','artifacts.mjs','conversation.mjs','runtime.mjs','approval.mjs','activity.mjs','desktop.mjs','desktop-frames.mjs','desktop-control.mjs','notifications.mjs','turn-request.mjs',
+  'server.mjs','bridge.mjs','core.mjs','universes.mjs','organization.mjs','managers.mjs','upgrade.mjs','media.mjs','artifacts.mjs','conversation.mjs','runtime.mjs','approval.mjs','activity.mjs','desktop.mjs','desktop-frames.mjs','desktop-control.mjs','notifications.mjs','turn-request.mjs',
   'app.js','index.html','style.css','README.md','TREY-QUICKSTART.md','APPLE-APPS.md','phone-bridge.mjs',
   'Start Rewster Command.command','Stop Rewster Command.command',
   'Start Rewster Command.cmd','Stop Rewster Command.cmd',

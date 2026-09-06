@@ -1,3 +1,4 @@
+import {acceptUniverse} from './universes.mjs';
 import fs from 'node:fs';
 import {approvalModes} from './approval.mjs';
 import path from 'node:path';
@@ -12,11 +13,12 @@ export class Store{
  for(const j of this.data.jobs){j.events??=[];j.options??={};}
  for(const j of this.data.jobs)if(['running','routing','review','starting'].includes(j.status)){if(j.executionDispatched===undefined&&['starting','running','review'].includes(j.status))j.executionDispatched=true;j.status='uncertain';j.error='The dashboard restarted during this request. Inspect the task before retrying; it may have run.'}this.save();}
  save(){const tmp=this.file+'.tmp';const fd=fs.openSync(tmp,'w',0o600);try{fs.writeFileSync(fd,JSON.stringify(this.data));fs.fsyncSync(fd)}finally{fs.closeSync(fd)}fs.renameSync(tmp,this.file);}
- accept(messages,key,options={}){
+ accept(messages,key,options={},managed={}){
  if(typeof key!=='string'||key.length<8||key.length>160)throw Error('A valid request key is required.');
  if(!Array.isArray(messages)||!messages.length||messages.length>100||messages.some(t=>typeof t!=='string'||(!t.trim()&&!options.attachments?.length)||t.length>30000))throw Error('Send 1–100 nonempty messages, each under 30,000 characters.');
  const old=this.data.jobs.filter(j=>j.requestKey===key);if(old.length){if(JSON.stringify(old.map(j=>j.prompt))!==JSON.stringify(messages.map(t=>t.trim()))||stable(old[0].options)!==stable(options))throw Error('Request key already belongs to different messages.');return old;}
- const jobs=messages.map(prompt=>({id:randomUUID(),requestKey:key,prompt:prompt.trim(),title:prompt.trim().slice(0,100)||'Photo message',status:'queued',approvalMode:this.data.settings.approvalMode,department:options.department||classify(prompt,this.data.customDepartments),createdAt:Date.now(),events:[],options}));this.data.jobs.push(...jobs);this.save();return jobs;
+ const universe=acceptUniverse(this.data,options);
+ const jobs=messages.map(prompt=>({id:randomUUID(),requestKey:key,prompt:prompt.trim(),title:prompt.trim().slice(0,100)||'Photo message',status:'queued',approvalMode:managed.origin==='rewster'?'manual':this.data.settings.approvalMode,universeId:universe.id,department:options.department||(options.threadId?this.data.threadCatalog?.find(t=>t.id===options.threadId)?.department:null)||classify(prompt,universe.customDepartments),createdAt:Date.now(),events:[],options,...(managed.origin==='rewster'?{origin:'rewster',...(managed.correctionRoot?{correctionRoot:managed.correctionRoot,originalRequest:managed.originalRequest}:{})}:{})}));this.data.jobs.push(...jobs);this.save();return jobs;
  }
  update(id,patch){const j=this.data.jobs.find(j=>j.id===id);if(!j)throw Error('Request not found');Object.assign(j,patch,{updatedAt:Date.now()});this.save();return j;}
 }

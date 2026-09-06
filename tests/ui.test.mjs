@@ -318,3 +318,13 @@ test('universe recalculates constant screen sizes after a container resize',()=>
  width=740;resize();assert.match(a.$('.department-node .node-visual').getAttribute('transform'),/scale\(2\)/);
  a.close();
 });
+
+test('universe switching scopes every view and isolates master drafts and request destinations',async()=>{
+ const state=snapshot({departments:['Operations','Design'],jobs:[],threads:[{id:'vending',title:'Restock route',department:'Operations'},{id:'design',title:'Retouch photo',department:'Design'}],universes:[{id:'world',name:'Vending Business',description:'Vending work',threadIds:['vending'],jobIds:[],projectIds:[],departments:['Operations'],customDepartments:[],managers:[]},{id:'blank',name:'New Studio',threadIds:[],jobIds:[],projectIds:[],departments:[],customDepartments:[],managers:[]}]});
+ const a=app(state,async url=>url==='/api/intake'?{ids:['receipt']}:state);a.$('#prompt').value='Global draft';a.$('#prompt').dispatchEvent(new a.w.Event('input'));
+ const select=id=>{a.$('#universe-picker').value=id;a.$('#universe-picker').dispatchEvent(new a.w.Event('change'))};
+ select('world');assert.equal(a.$('#prompt').value,'');assert.match(a.$('#department-nav').textContent,/Operations/);assert.doesNotMatch(a.$('#department-nav').textContent,/Design/);a.$('[data-view="history"]').click();assert.match(a.$('tbody').textContent,/Restock route/);assert.doesNotMatch(a.$('tbody').textContent,/Retouch photo/);
+ a.$('#prompt').value='Vending draft';a.$('#prompt').dispatchEvent(new a.w.Event('input'));select('blank');assert.equal(a.$('#prompt').value,'');assert.equal(a.$('#department-nav').textContent,'');assert.match(a.$('.map-count').textContent,/0 \/ 0/);
+ select('world');assert.equal(a.$('#prompt').value,'Vending draft');a.$('#send').click();await tick();assert.equal(a.calls.find(c=>c.url==='/api/intake').body.options.universeId,'world');
+ select('');assert.equal(a.$('#prompt').value,'Global draft');assert.equal(a.$('#universe-picker').value,'');assert.match(a.$('#department-nav').textContent,/Design/);a.close();
+});
