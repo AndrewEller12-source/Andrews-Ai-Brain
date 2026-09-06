@@ -54,7 +54,7 @@ test('portable launcher starts, detects existing app, and stops only its own hea
   const source=path.join(temporary,'app'),data=path.join(temporary,'data');
   fs.mkdirSync(path.join(source,'scripts'),{recursive:true});
   for(const file of ['runtime.mjs','upgrade.mjs','package.json','scripts/launch.mjs','scripts/stop.mjs'])fs.copyFileSync(path.join(appRoot,file),path.join(source,file));
-  fs.writeFileSync(path.join(source,'server.mjs'),`import http from 'node:http'; const server=http.createServer((req,res)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify({app:'rewster-command',pid:process.pid,version:'0.7.3'}));});server.listen(Number(process.env.PORT),'127.0.0.1');process.on('SIGTERM',()=>server.close(()=>process.exit(0)));`);
+  fs.writeFileSync(path.join(source,'server.mjs'),`import http from 'node:http'; const server=http.createServer((req,res)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify({app:'rewster-command',pid:process.pid,version:'0.7.4'}));});server.listen(Number(process.env.PORT),'127.0.0.1');process.on('SIGTERM',()=>server.close(()=>process.exit(0)));`);
   const http=await import('node:http');
   const probe=http.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
   const env={...process.env,PORT:String(port),REWSTER_DATA_DIR:data,REWSTER_NO_OPEN:'1'};
@@ -70,4 +70,13 @@ test('portable launcher starts, detects existing app, and stops only its own hea
     fs.writeFileSync(path.join(data,'server.pid'),String(pid));
     const stopped=invoke('stop.mjs');assert.equal(stopped.status,0,stopped.stderr);assert(!fs.existsSync(path.join(data,'server.pid')));
   }finally{if(pid){try{process.kill(pid,'SIGTERM');}catch{}}fs.rmSync(temporary,{recursive:true,force:true});}
+});
+
+
+test('native updater build numbers advance with the package version',()=>{
+ const version=JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version;
+ const [major,minor,patch]=version.split('.').map(Number),expected=major*10000+minor*100+patch;
+ const project=fs.readFileSync(new URL('../apple/AndrewsAiBrain.xcodeproj/project.pbxproj',import.meta.url),'utf8');
+ const builds=[...project.matchAll(/CURRENT_PROJECT_VERSION = "(\d+)"/g)];assert.equal(builds.length,4);
+ for(const match of builds)assert.equal(Number(match[1]),expected);
 });

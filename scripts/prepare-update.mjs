@@ -10,6 +10,9 @@ const sparkle=path.resolve(process.argv[3]||'/tmp/ai-task-manager-native-build/S
 const output=path.resolve('dist',`publish-${version}`);fs.mkdirSync(output,{recursive:true});
 const plist=path.join(app,'Contents/Info.plist');
 if(run('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',plist])!==version)throw Error('Build version differs from source');
+const [major,minor,patch]=version.split('.').map(Number);
+const expectedBuild=major*10000+minor*100+patch;
+if(run('/usr/libexec/PlistBuddy',['-c','Print :CFBundleVersion',plist])!==String(expectedBuild))throw Error('Updater build number differs from release version');
 run('/usr/bin/codesign',['--verify','--deep','--strict',app]);
 const archive=path.join(output,`Ai-Task-Manager-Mac-${version}.zip`);fs.rmSync(archive,{force:true});
 run('/usr/bin/ditto',['-c','-k','--sequesterRsrc','--keepParent',app,archive]);
