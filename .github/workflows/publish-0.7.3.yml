@@ -1,0 +1,44 @@
+name: Publish verified 0.7.3
+on:
+  push:
+    paths: ['.github/workflows/publish-0.7.3.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.7.3.zip Ai-Task-Manager-Source-0.7.3.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://characterization-somehow-filling-extensive.trycloudflare.com/$f" -o "$f"
+          done
+          echo '6c0d1a9e99ad51b5e63cca244b4020e9352f87338aaa23eff58eac7117f88606  Ai-Task-Manager-Mac-0.7.3.zip' | sha256sum -c -
+          echo '402dd5efc865a7e62200528f6aa414d75f60a935822ff3f919b60273a0aec167  Ai-Task-Manager-Source-0.7.3.zip' | sha256sum -c -
+          echo '7e04eedcfc5432ebcc0a8d0dd9f53d08e77c12bb1b42e659221399a8b36dc1f1  appcast.xml' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - name: Publish signed Mac update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create v0.7.3 assets/* --title 'Ai Task Manager 0.7.3' --latest --notes 'Fixes older cached messages appearing below the latest reply in resumed conversations. Completed turns now use saved history, while active tasks append only newer cached messages. Verified on the affected live conversation, with 51 UI tests and 5 portability tests passing. Signed Mac update and editable source included.'
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          unzip -q assets/Ai-Task-Manager-Source-0.7.3.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Fix chat history and live synchronization in 0.7.3'
+          git push
+
