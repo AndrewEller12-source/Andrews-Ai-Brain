@@ -95,3 +95,26 @@ body.chat-mode{overflow:hidden}.chat-mode .shell{height:100dvh;display:flex;flex
 
 .universe-expanded.desktop-live #activity-connection,.universe-expanded #completion-strip{display:none}.universe-expanded .agent-card .node-label{font-size:26px}.universe-expanded .agent-card .node-meta{font-size:20px;transform:translateY(10px)}.universe-expanded .agent-card .agent-card-status{font-size:20px}.universe-expanded .agent-card .agent-card-model{font-size:22px}.universe-expanded .department-label{font-size:26px}.universe-expanded .node-meta.department-label{font-size:20px;transform:translateY(9px)}.universe-expanded .project-label{font-size:21px}.universe-expanded .map-stage{min-height:0}.universe-expanded .map-column{overflow:hidden}
 .manager-node{cursor:pointer}.manager-node rect{fill:#102638;stroke:#538199;stroke-width:2}.manager-node text{fill:#c6ebf4;font-size:24px}.manager-node .manager-node-status{fill:#9bb5c9;font-size:19px}.manager-node.node-running rect{stroke:#65e0d0;animation:branch-beacon 2.6s ease-in-out infinite}.manager-node:hover rect{stroke:#97edff}
+
+/* Screen-sized map symbols. Zoom separates anchors, never inflates typography. */
+#neural-map .node-visual text{paint-order:stroke;stroke:#071321;stroke-width:3px;stroke-linejoin:round;letter-spacing:0}
+#neural-map .department-label{font:600 15px 'Avenir Next',sans-serif}
+#neural-map .node-meta.department-label{font:12px 'Avenir Next',sans-serif;transform:translateY(3px)}
+#neural-map .project-label{font:13px 'Avenir Next',sans-serif}
+#neural-map .task-node .node-label{font:13px 'Avenir Next',sans-serif}
+#neural-map .task-node .node-meta{font:11px 'Avenir Next',sans-serif;transform:none}
+#neural-map .agent-card .node-label{font-size:18px}
+#neural-map .agent-card .node-meta{font-size:16px;transform:translateY(8px)}
+#neural-map .agent-card .agent-card-status{font-size:16px}
+#neural-map .agent-card .agent-card-model{font-size:16px}
+#neural-map .manager-node text{font-size:20px}
+#neural-map .manager-node .manager-node-status{font-size:16px}
+#neural-map .hub-name{font-size:21px}
+#neural-map .hub-state{font-size:17px}
+#neural-map .map-labels-hidden text{visibility:hidden}
+#neural-map .map-labels-hidden:hover text,#neural-map .map-labels-hidden:focus-visible text{visibility:visible}
+#neural-map .hover-label{opacity:1}
+#neural-map .node-visual{transform-box:view-box}
+#neural-map .edge-visual,#neural-map .trunk-glow{vector-effect:non-scaling-stroke}
+#neural-map[data-detail-level="departments"] .node-meta.department-label { display: none; }
+#neural-map .label-leader { stroke:var(--branch); stroke-width:1; stroke-opacity:.55; stroke-dasharray:2 3; pointer-events:none; }

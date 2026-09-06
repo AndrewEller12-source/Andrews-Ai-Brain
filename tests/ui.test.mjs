@@ -291,3 +291,30 @@ test('manager settings expose real task identity without counting standby slots 
  const jobs=[{id:'manager-job',threadId:'manager-thread',managerForDepartment:'Design',title:'Design manager review',status:'running',department:'Design'}];const a=app(snapshot({departments:['Design'],jobs,managers:[{department:'Design',title:'Design manager',jobId:'manager-job',threadId:'manager-thread',status:'running',model:'gpt-5.4'}]}));
  a.$('[data-view="settings"]').click();assert.match(a.$('.manager-directory').textContent,/Open manager task/);const toggle=a.$('[data-organization-setting="autoManagers"]');toggle.checked=false;toggle.dispatchEvent(new a.w.Event('change'));await tick();assert.deepEqual(a.calls.find(c=>c.url==='/api/settings').body,{autoManagers:false});a.close();
 });
+
+test('universe zoom counter-scales node visuals and reveals labels progressively without changing task identity',()=>{
+ const state=snapshot({threads:[{id:'zoom-task',title:'Build a clear map',department:'Engineering',cwd:'/projects/shop',activity:{state:'completed',source:'events'}}]});
+ const a=app(state);const svg=a.$('#neural-map');svg.getBoundingClientRect=()=>({width:740,height:475,left:0,top:0,right:740,bottom:475});
+ a.$('#zoom-in').click();
+ assert.equal(svg.dataset.detailLevel,'departments');assert.ok(a.$('.project-node').classList.contains('map-labels-hidden'));
+ const scale=()=>Number(a.$('.department-node .node-visual').getAttribute('transform').match(/scale\(([^)]+)/)[1]);
+ assert.ok(Math.abs(scale()*1.2*.5-1)<1e-9);
+ for(let i=0;i<3;i++)a.$('#zoom-in').click();
+ assert.equal(svg.dataset.detailLevel,'projects');assert.equal(a.$('.project-node').classList.contains('map-labels-hidden'),false);
+ for(let i=0;i<20;i++)a.$('#zoom-in').click();
+ assert.equal(svg.dataset.detailLevel,'tasks');assert.ok(Math.abs(scale()*5.8*.5-1)<1e-9);
+ assert.equal(a.$('.task-node').dataset.task,'zoom-task');
+ assert.equal(a.$('.department-node').querySelectorAll('.node-visual').length,1);
+ a.update(state);assert.equal(a.$('#zoom-value').textContent,'580%');
+ a.close();
+});
+
+test('universe recalculates constant screen sizes after a container resize',()=>{
+ const a=app(snapshot({threads:[{id:'resize-task',title:'Responsive workspace',department:'Engineering',cwd:'/projects/shop'}]}));
+ let resize; a.w.ResizeObserver=class{constructor(callback){resize=callback}observe(){}disconnect(){}};
+ a.update(snapshot({threads:[{id:'resize-task',title:'Responsive workspace',department:'Engineering',cwd:'/projects/shop'}]}));
+ const svg=a.$('#neural-map');let width=1480;svg.getBoundingClientRect=()=>({width,height:950,left:0,top:0,right:width,bottom:950});
+ resize();assert.match(a.$('.department-node .node-visual').getAttribute('transform'),/scale\(1\)/);
+ width=740;resize();assert.match(a.$('.department-node .node-visual').getAttribute('transform'),/scale\(2\)/);
+ a.close();
+});
