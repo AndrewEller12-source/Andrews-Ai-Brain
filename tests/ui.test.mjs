@@ -239,3 +239,25 @@ test('late partial streaming text cannot shorten a newer persisted reply',async(
  const a=app(state,async url=>url.startsWith('/api/conversation')?{items:[{id:'answer',turnId:'turn',role:'assistant',text:'Current complete reply',images:[]}],nextCursor:null}:state);
  try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await tick();assert.match(a.$('.message-assistant').textContent,/Current complete reply/);}finally{a.close()}
 });
+
+
+test('completed cache excerpts cannot append old turns or early messages after the latest reply',async()=>{
+ const msg=(id,turnId,text,role='assistant')=>({id,turnId,text,role,images:[]});
+ const early=msg('early','new-turn','Starting the new task'),latest=msg('latest','new-turn','The new task is finished');
+ const old=[msg('old-user','old-turn','Old request','user'),msg('old-answer','old-turn','Old answer')];
+ const state=snapshot({threads:[chatThread],jobs:[{id:'old-job',threadId:'design',turnId:'old-turn',title:'Design',status:'completed',prompt:'Old request',response:'Old answer',chatItems:old,createdAt:1},{id:'new-job',threadId:'design',turnId:'new-turn',title:'Design',status:'completed',prompt:'New request',response:latest.text,chatItems:[early,latest],createdAt:2}]});
+ const a=app(state,async url=>url.startsWith('/api/conversation')?(url.includes('cursor=')?{items:[...old,early],nextCursor:null}:{items:[latest],nextCursor:'older'}):state);
+ try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await tick();
+ assert.deepEqual([...a.w.document.querySelectorAll('.message-assistant')].map(e=>e.dataset.messageId),['latest']);
+ a.$('#chat-older').click();await tick();
+ assert.deepEqual([...a.w.document.querySelectorAll('.message-assistant')].map(e=>e.dataset.messageId),['old-answer','early','latest']);
+ await a.w.loadConversation();assert.equal([...a.w.document.querySelectorAll('.chat-message')].at(-1).dataset.messageId,'latest');
+ }finally{a.close()}
+});
+
+test('active cache contributes only newer messages after the shared history tail',async()=>{
+ const msg=(id,text)=>({id,turnId:'turn',text,role:'assistant',images:[]});
+ const state=snapshot({threads:[chatThread],jobs:[{id:'job',threadId:'design',turnId:'turn',title:'Design',status:'running',chatItems:[msg('early','Starting'),msg('current','Current progress'),msg('next','New streamed progress')]}]});
+ const a=app(state,async url=>url.startsWith('/api/conversation')?{items:[msg('current','Current progress')],nextCursor:'older'}:state);
+ try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await tick();assert.deepEqual([...a.w.document.querySelectorAll('.message-assistant')].map(e=>e.dataset.messageId),['current','next']);}finally{a.close()}
+});

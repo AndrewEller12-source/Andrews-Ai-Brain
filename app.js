@@ -321,8 +321,17 @@ function conversationItems(){
  const id=activeChatThread(),t=activeChat(),record=conversations.get(id),items=new Map((record?.items||[]).map(i=>[i.turnId+':'+i.id,i]));
  const jobs=data.jobs.filter(j=>j.id===chatSelection||id&&(j.threadId===id||j.options?.threadId===id)).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
  for(const j of jobs){
-  if(![...items.values(),...(j.chatItems||[])].some(i=>i.role==='user'&&(i.clientId===j.id||j.turnId&&i.turnId===j.turnId)))items.set('user:'+j.id,{id:'user:'+j.id,clientId:j.id,turnId:j.turnId,role:'user',label:'You',text:j.prompt||'',images:j.attachments||[],status:j.status});
-  for(const i of j.chatItems||[])if(!items.has(messageKey(i))&&(!record?.items?.length||record.items.some(h=>h.turnId===i.turnId)||['running','review','starting'].includes(j.status)))items.set(messageKey(i),i);
+  const active=['running','review','starting'].includes(j.status),hydrated=record?.initialized;
+  const turnLoaded=record?.items?.some(i=>j.turnId&&i.turnId===j.turnId);
+  // Once history is loaded it owns completed turns. Cached excerpts can start before
+  // this page, and appending them would put old replies below the latest answer.
+  if((!hydrated||active||turnLoaded)&&![...items.values()].some(i=>i.role==='user'&&(i.clientId===j.id||j.turnId&&i.turnId===j.turnId)))items.set('user:'+j.id,{id:'user:'+j.id,clientId:j.id,turnId:j.turnId,role:'user',label:'You',text:j.prompt||'',images:j.attachments||[],status:j.status});
+  if(hydrated&&!active)continue;
+  const cached=j.chatItems||[];
+  const lastShared=hydrated?cached.findLastIndex(i=>items.has(messageKey(i))):-1;
+  // During execution only the cache tail after a shared history item is newer.
+  const pending=hydrated?(lastShared>=0?cached.slice(lastShared+1):turnLoaded?[]:cached):cached;
+  for(const i of pending)if(!items.has(messageKey(i))&&!(i.role==='user'&&[...items.values()].some(h=>h.role==='user'&&h.turnId===i.turnId)))items.set(messageKey(i),i);
   const replies=[...items.values()].filter(i=>i.role==='assistant'&&j.turnId&&i.turnId===j.turnId);
   if(j.response&&!replies.length)items.set('response:'+j.id,{id:'response:'+j.id,turnId:j.turnId,role:'assistant',label:'Agent',text:j.response,images:[]});
   if(['running','review'].includes(j.status)&&j.liveText&&(!t?.activity?.turnId||t.activity.turnId===j.turnId)){const item=replies.find(i=>i.id===j.liveItemId);if(item){if(j.liveText.startsWith(item.text||''))items.set(item.turnId+':'+item.id,{...item,text:j.liveText,streaming:true});}else if(!replies.some(i=>i.text===j.liveText))items.set('stream:'+j.id,{id:'stream:'+j.id,turnId:j.turnId,role:'assistant',label:'Agent',text:j.liveText,images:[],streaming:true});}
