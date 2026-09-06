@@ -1,0 +1,47 @@
+name: Publish verified 0.8.0
+on:
+  push:
+    paths: ['.github/workflows/publish-0.8.0.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.8.0.zip Ai-Task-Manager-Source-0.8.0.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://prostores-butler-graduates-const.trycloudflare.com/$f" -o "$f"
+          done
+          echo '52b6abecc6a24dc22d24e9de565eb6418f6257fc4f1bc0afcdf12edba2773f88  Ai-Task-Manager-Mac-0.8.0.zip' | sha256sum -c -
+          echo 'ab127cae471e775b6070676e684e1962df0d959a62ee6c04fa757e71dd0fa949  Ai-Task-Manager-Source-0.8.0.zip' | sha256sum -c -
+          echo '3ed9ec10f1145418afa211b121bacde8fcaee7b3182b83e4e7f3c239f53d9135  appcast.xml' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - name: Publish signed Mac update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create v0.8.0 assets/* --title 'Ai Task Manager 0.8.0' --latest --notes 'Fixes oversized desktop updates by streaming compact metadata, with real socket regression coverage. The expanded universe has readable project and agent cards, paging, and recent-work ordering. Departments grow from actual work and preserve explicit assignments. Department managers run bounded read-only Codex reviews of newly completed dashboard tasks, with visible real task identity and configurable automation. 172 regression checks passed across the suite and targeted follow-ups; a real Codex manager review completed. Includes signed Mac update and editable source.'
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          unzip -q assets/Ai-Task-Manager-Source-0.8.0.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Grow the universe and restore desktop observation in 0.8.0'
+          git push
+
+
+
+
