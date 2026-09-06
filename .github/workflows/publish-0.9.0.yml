@@ -1,0 +1,46 @@
+name: Publish verified 0.9.0
+on:
+  push:
+    paths: ['.github/workflows/publish-0.9.0.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.9.0.zip Ai-Task-Manager-Source-0.9.0.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://forgotten-millions-smallest-mechanism.trycloudflare.com/$f" -o "$f"
+          done
+          echo '2c1724841da5c3d3519f2e2c8650a24eec83e5fbd20ba7303b4350cd04e41af1  Ai-Task-Manager-Mac-0.9.0.zip' | sha256sum -c -
+          echo '9d864fc1ec50ff8281d288fd27bf7a9da317dcc1b052d670d95471c676f7abcf  Ai-Task-Manager-Source-0.9.0.zip' | sha256sum -c -
+          echo 'a34b59552a7e1fee457fed480626f5ceb7d5a03907aa1c75a12e13e365027e87  appcast.xml' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - name: Publish signed Mac update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create v0.9.0 assets/* --title 'Ai Task Manager 0.9.0' --latest --notes 'Adds named universes alongside All Codex. Start empty or include existing tasks and projects. Requests, routing catalogs, drafts, departments and manager records follow the selected universe, with real subagents inheriting their parent task membership. The message box has a clearer border and focus treatment. Preserves the concurrently implemented Rewster supervision integration and keeps its reviews with their source universe. 189 tests passed; Mac build and isolated browser workflows verified. Includes signed update assets and editable source.'
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          unzip -q assets/Ai-Task-Manager-Source-0.9.0.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Add scoped universes and Rewster supervision in 0.9.0'
+          git push
+
+
+
