@@ -93,7 +93,7 @@ function bindNotifications(root=document){root.querySelectorAll('[data-open-noti
 function renderNotifications(){const unread=(data.notifications||[]).filter(n=>!n.read).sort((a,b)=>normalizeTime(b.completedAt)-normalizeTime(a.completedAt));$('#notification-count').textContent=unread.length;$('#notifications-open').classList.toggle('has-unread',unread.length>0);const strip=$('#completion-strip');strip.hidden=!unread.length;const html=unread.length?`<div class="completion-heading"><strong>${unread.length} ${unread.length===1?'task is':'tasks are'} ready for you</strong><button class="subtle" id="view-completions">View all completions</button></div>${unread.slice(0,3).map(notificationCard).join('')}`:'';if(strip.innerHTML!==html){strip.innerHTML=html;bindNotifications(strip);$('#view-completions')?.addEventListener('click',()=>{view='notifications';render()})}}
 function findTask(id){const tasks=allTasks();return tasks.find(t=>t.id===id)||tasks.find(t=>t.threadId===id)}
 function badge(status){return `<span class="badge ${esc(status)}">${esc(labels[status]||status)}</span>`;}
-function taskRows(tasks){return tasks.map(t=>`<tr data-task="${esc(t.id)}" tabindex="0"><td><span class="task-name">${esc(t.title)}${t.archived?' · Archived':''}</span><span class="table-sub">${esc(t.local?t.waitReason||t.reason||t.prompt:t.lastActivity)}</span></td><td>${badge(t.status)}</td><td class="muted">${esc(t.department)}</td><td class="muted">${esc(prettyModel(t.model))}</td><td class="muted">${esc(ago(t.updatedAt||t.createdAt))}</td></tr>`).join('');}
+function taskRows(tasks){return tasks.map(t=>`<tr data-task="${esc(t.id)}" tabindex="0"><td><span class="task-name">${esc(t.title)}${t.archived?' · Archived':''}</span><span class="table-sub">${esc(t.historySummary??(t.local?t.waitReason||t.reason||t.prompt:t.lastActivity))}</span></td><td>${badge(t.status)}</td><td class="muted">${esc(t.department)}</td><td class="muted">${esc(prettyModel(t.model))}</td><td class="muted">${esc(ago(t.historyUpdatedAt||t.updatedAt||t.createdAt))}</td></tr>`).join('');}
 function table(tasks){return `<div class="table-wrap"><table><thead><tr><th>Task / latest activity</th><th>Status</th><th>Department</th><th>Model</th><th>Updated</th></tr></thead><tbody>${taskRows(tasks.slice(0,limit))}</tbody></table>${!tasks.length?'<div class="empty"><h3>Nothing here yet.</h3><p>Send a request above. It will appear here with its destination and status.</p></div>':''}</div>${tasks.length>limit?'<button class="load-more" id="load-more">Show more tasks</button>':''}`;}
 function bindTasks(){document.querySelectorAll('[data-task]').forEach(el=>{const open=()=>{if(el.matches('.task-node,.branch-agent')||el.dataset.openChat||view==='history'){openConversation(el.dataset.task);return;}selected=findTask(el.dataset.task)?.id||el.dataset.task;inspectAgent=!!el.closest('#neural-map')||!!el.dataset.agentSelect||view==='history';renderInspector();if(view==='overview')renderContent();};el.onclick=open;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}}});$('#load-more')?.addEventListener('click',()=>{limit+=40;renderContent()});}
 function render(){
@@ -124,7 +124,7 @@ function renderContent(){const tasks=allTasks(),mapFocus=document.activeElement?
  }else if(view==='settings'){
  content=`<div class="settings-grid">${accountSettings()}<section class="panel"><h3>Execution capacity</h3><p>Accept bursts immediately; run a controlled number of tasks. One additional slot is available to casual conversation. Requests sharing a task or source folder are serialized.</p><label for="capacity">Concurrent workers </label><select id="capacity">${[1,2,3,4,5,6,7,8].map(n=>`<option ${data.settings.concurrency===n?'selected':''}>${n}</option>`).join('')}</select><div class="notice">Burst requests are saved before routing finishes. Execution still follows worker capacity and model limits. The queue is saved locally and survives restarts; interrupted outcomes require inspection.</div><h3>Automatic model policy</h3><p>Quick questions → Luna<br>Everyday work → Sol<br>Difficult reasoning → Astra</p><p>This is a starting policy, not a measured claim that a model is best. Your manual choice overrides it.</p></section><section class="panel"><h3>Available in your Codex</h3>${data.models.map(m=>`<div class="model-row"><strong>${esc(m.displayName)}</strong><small>${esc(m.description)}</small><small>${esc((m.supportedReasoningEfforts||[]).map(e=>e.reasoningEffort).join(' / '))}</small></div>`).join('')}</section></div><div class="notice">This is a local Codex app-server client. Dashboard-launched tasks have live events and approvals. Desktop activity is observed separately; each task shows its activity source and freshness. Unknown or stale activity never gets a sustained active pulse. Brief amber flashes indicate newly recorded events with runtime status unconfirmed. ChatGPT cloud conversations, desktop-only tools and remote hosts are not bridged in this version.</div>`;
  }else{
- let list=view==='requests'?tasks.filter(t=>t.local):view==='attention'?tasks.filter(needsAttention):view==='history'?graphTasks(tasks):tasks.filter(t=>t.department===department);
+ let list=view==='requests'?tasks.filter(t=>t.local):view==='attention'?tasks.filter(needsAttention):view==='history'?historyTasks(tasks):tasks.filter(t=>t.department===department);
  if(query)list=list.filter(t=>(t.title+' '+t.prompt+' '+t.department+' '+t.model).toLowerCase().includes(query.toLowerCase()));
  content=`<div class="section-heading"><div><h2>${list.length} ${view==='attention'?'items to review':'tasks'}</h2></div><div class="toolbar"><input class="search" id="search" aria-label="Search tasks" placeholder="Search tasks…" value="${esc(query)}"></div></div>${view==='history'?'<div class="notice">All your chats appear here, including chats created in this app. Search or open a chat to read its saved messages.</div>':''}${table(list)}`;
  }
@@ -188,7 +188,26 @@ document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.datase
 
 let graphDepartment=null,graphProject=null,graphFilter='all',graphSearch='',mapCamera={x:0,y:0,z:1},mapDragging=false;
 const activeStatuses=new Set(['running','starting','review','routing','queued','ready']);
-const normalizeTime=t=>t?(t<1e12?t*1000:t):0;
+function normalizeTime(t){if(!t)return 0;const numeric=Number(t);if(Number.isFinite(numeric))return numeric<1e12?numeric*1000:numeric;const parsed=Date.parse(t);return Number.isFinite(parsed)?parsed:0;}
+function historyTasks(tasks){
+ const threads=new Map(data.threads.map(t=>[t.id,t]));
+ const changed=t=>Math.max(...[t.createdAt,t.updatedAt,t.lastEventAt,t.activityAt,t.completedAt].map(normalizeTime));
+ return graphTasks(tasks).map(t=>{
+  const id=t.threadId||t.id,thread=threads.get(id),jobs=data.jobs.filter(j=>j.threadId===id||j.id===id);
+  const signals=[];
+  if(thread?.lastActivity)signals.push({text:thread.lastActivity,at:normalizeTime(thread.activityAt)||changed(thread)});
+  for(const j of jobs){
+   const replies=(j.chatItems||[]).filter(i=>i.role==='assistant');
+   const text=j.liveText&&['running','review'].includes(j.status)?j.liveText:j.response||replies.at(-1)?.text;
+   if(text)signals.push({text,at:changed(j)});
+   else if(j.prompt)signals.push({text:j.prompt,at:normalizeTime(j.createdAt)});
+   for(const event of j.events||[])if(event.text)signals.push({text:event.text,at:normalizeTime(event.at)});
+  }
+  signals.sort((a,b)=>b.at-a.at);
+  const historyUpdatedAt=Math.max(changed(t),thread?changed(thread):0,...jobs.map(changed));
+  return {...t,historyUpdatedAt,historySummary:signals[0]?.text||thread?.preview||t.prompt||'No recorded messages yet.',model:thread?.model||t.model};
+ }).sort((a,b)=>b.historyUpdatedAt-a.historyUpdatedAt);
+}
 function graphTasks(tasks){const seen=new Map(),threads=new Map(data.threads.map(t=>[t.id,t]));for(const t of [...tasks].sort((a,b)=>normalizeTime(b.createdAt||b.updatedAt)-normalizeTime(a.createdAt||a.updatedAt))){const id=t.threadId||t.id;if(seen.has(id))continue;const known=threads.get(id),native=known?.activity?.source==='desktop'||t.executionRuntime==='desktop';const agent=known?{...t,archived:known.archived,title:known.title||t.title,department:known.department||t.department,cwd:known.cwd||t.cwd,workspaceKey:known.cwd||t.workspaceKey,agentName:known.agentName||known.activity?.agentName||t.agentName,parentThreadId:known.parentThreadId||known.activity?.parentThreadId||t.parentThreadId,activity:native?(known.activity||t.activity):t.activity}:t;seen.set(id,agent.activity?{...agent,status:activityStatus(agent)}:agent)}return [...seen.values()].sort((a,b)=>priority(a)-priority(b)||normalizeTime(b.updatedAt||b.createdAt)-normalizeTime(a.updatedAt||a.createdAt));}
 function folderKey(t){return t.workspaceKey||t.cwd|| (t.local?'request:'+t.id:'unassigned');}
 function folderName(key,t){const known=data.projects.find(p=>p.path===key);return known?.label||t.projectLabel|| (key.startsWith('request:')?'New request':key.split('/').filter(Boolean).pop())||'Unassigned';}

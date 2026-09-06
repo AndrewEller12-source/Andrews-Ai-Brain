@@ -261,3 +261,21 @@ test('active cache contributes only newer messages after the shared history tail
  const a=app(state,async url=>url.startsWith('/api/conversation')?{items:[msg('current','Current progress')],nextCursor:'older'}:state);
  try{a.$('.task-node').dispatchEvent(new a.w.Event('click'));await tick();assert.deepEqual([...a.w.document.querySelectorAll('.message-assistant')].map(e=>e.dataset.messageId),['current','next']);}finally{a.close()}
 });
+
+
+test('history is newest-first across completed, unknown and running tasks, using real activity timestamps',()=>{
+ const now=Date.now();const state=snapshot({threads:[
+ {id:'recent',title:'Recently finished native chat',department:'Engineering',updatedAt:(now-60000)/1000,lastEventAt:new Date(now-1000).toISOString(),activityAt:new Date(now-1000).toISOString(),lastActivity:'Newest finished result',recordedStatus:'unknown'},
+ {id:'old',title:'Older dashboard chat',department:'Engineering',updatedAt:(now-3600000)/1000,lastActivity:'Old result',recordedStatus:'completed'},
+ {id:'running',title:'Long running chat',department:'Engineering',updatedAt:(now-120000)/1000,lastActivity:'Older progress',activity:{state:'running',source:'desktop',observedAt:now}}],jobs:[{id:'job',threadId:'old',title:'Old request',department:'Engineering',status:'completed',createdAt:now-7200000,updatedAt:now-3600000,reason:'Old routing explanation',response:'Old result'}]});
+ const a=app(state);try{a.$('[data-view="history"]').click();const rows=[...a.w.document.querySelectorAll('tbody tr')];assert.deepEqual(rows.map(r=>r.dataset.task),['recent','running','job']);assert.match(rows[0].textContent,/Newest finished result/);assert.match(rows[0].textContent,/Just now/);assert.doesNotMatch(rows[0].textContent,/Running/);assert.doesNotMatch(a.$('tbody').textContent,/routing explanation/);
+ a.update({...state,threads:state.threads.map(t=>t.id==='running'?{...t,updatedAt:now/1000,lastActivity:'Just completed',activity:{state:'completed',source:'desktop',observedAt:now}}:t)});
+ assert.equal(a.$('tbody tr').dataset.task,'running');assert.match(a.$('tbody tr').textContent,/Just completed/);
+ }finally{a.close()}
+});
+
+test('history shows new native activity on an older dashboard-created thread and retains its exact identity',async()=>{
+ const now=Date.now(),state=snapshot({threads:[{id:'thread',title:'Real chat title',department:'Engineering',updatedAt:now/1000,activityAt:new Date(now).toISOString(),lastActivity:'Latest native reply',model:'gpt-6-astra',recordedStatus:'completed'}],jobs:[{id:'job',threadId:'thread',turnId:'old-turn',title:'Old task',status:'completed',department:'Engineering',updatedAt:now-3600000,createdAt:now-7200000,response:'Old cached answer',reason:'Router explanation',model:'gpt-5.5'}]});
+ const a=app(state,async url=>url.startsWith('/api/conversation')?{items:[],nextCursor:null}:state);
+ try{a.$('[data-view="history"]').click();assert.match(a.$('tbody tr').textContent,/Real chat title.*Latest native reply.*GPT 6-Astra.*Just now/);assert.doesNotMatch(a.$('tbody tr').textContent,/Old cached answer|Router explanation/);a.$('tbody tr').click();await tick();assert.ok(a.calls.some(c=>c.url==='/api/conversation?id=thread'));}finally{a.close()}
+});
