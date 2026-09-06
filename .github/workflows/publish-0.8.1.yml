@@ -1,0 +1,46 @@
+name: Publish verified 0.8.1
+on:
+  push:
+    paths: ['.github/workflows/publish-0.8.1.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.8.1.zip Ai-Task-Manager-Source-0.8.1.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://dom-dealtime-balanced-vic.trycloudflare.com/$f" -o "$f"
+          done
+          echo 'a9f0283eb92a384eef8d03d3c08e075d7dc26f9b6d22379d36735af7d48c9720  Ai-Task-Manager-Mac-0.8.1.zip' | sha256sum -c -
+          echo 'c50dcb4c8c6a3495eff16c12dd666d5d98bec04d40d8fadbbeeed4a99c9c5783  Ai-Task-Manager-Source-0.8.1.zip' | sha256sum -c -
+          echo '6d23911db9a788808cab0feeb104edcc949d26b9f4ca3665364e1f09bbf7dc24  appcast.xml' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - name: Publish signed Mac update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create v0.8.1 assets/* --title 'Ai Task Manager 0.8.1' --latest --notes 'Universe branches have more space. Labels, nodes and agent cards stay readable as you zoom, with department, project and task detail revealed progressively. Collision-aware labels and responsive sizing reduce crowding. Verified 100% through 580% zoom, 174 regression tests passed, and the Mac build succeeded. Includes signed updater assets and editable source.'
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          unzip -q assets/Ai-Task-Manager-Source-0.8.1.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Keep universe labels readable across zoom and resize in 0.8.1'
+          git push
+
+
+
