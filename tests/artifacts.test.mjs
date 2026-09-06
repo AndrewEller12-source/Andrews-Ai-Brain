@@ -15,3 +15,11 @@ test('previews, sensitive files, missing files and code blocks preserve honest o
  assert.equal(store.reference(items[0].target,{threadId:'t',role:'assistant'}).kind,'preview');assert.equal(store.reference('/tmp/.env',{threadId:'t'}).unavailable,true);assert.equal(store.reference('/not/real/file.zip',{threadId:'t'}).unavailable,true);assert.equal(store.reference('javascript:alert(1)',{threadId:'t'}),null);
  assert.equal(store.reference('https://user:password@example.com',{threadId:'t'}),null);
 });
+
+test('command log endpoints are not outputs while explicit file changes remain downloadable',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'output-provenance-')),store=new ArtifactStore(path.join(dir,'private')),file=path.join(dir,'result.txt');fs.writeFileSync(file,'result');
+ const context={artifacts:store,threadId:'thread',cwd:dir};
+ const command=normalizeConversationItem({item:{type:'commandExecution',command:'curl http://127.0.0.1:4780/api/state',aggregatedOutput:'https://example.com/internal-status'}},media,context);
+ assert.deepEqual(command.outputs,[]);
+ const change=normalizeConversationItem({item:{type:'fileChange',changes:[{path:file}]}},media,context);assert.equal(change.outputs[0].filename,'result.txt');assert.ok(change.outputs[0].downloadUrl);
+});

@@ -32,7 +32,7 @@ export function normalizeConversationItem(row,media,{cwd,artifacts,threadId}={})
  const withoutCode=text.replace(/```[\s\S]*?```/g,'');for(const match of withoutCode.matchAll(/!\[([^\]]*)\]\(<?([^\n]*?)>?\)/g)){let source=match[2].replace(/\s+"[^"]*"$/,'');add(source,match[1]||'Image');}
  }
  const id=type==='userMessage'&&item.clientId?'user:'+item.clientId:item.id||hash((turnId||'')+type+text+images.map(i=>i.id).join());
- const outputLinks=conversationLinks(text);if(type==='fileChange')for(const c of item.changes||[])if(c.path)outputLinks.push({target:c.path,name:c.path.split('/').at(-1)});
+ const outputLinks=role==='activity'?[]:conversationLinks(text);if(type==='fileChange')for(const c of item.changes||[])if(c.path)outputLinks.push({target:c.path,name:c.path.split('/').at(-1)});
  const outputs=artifacts?outputLinks.map(link=>artifacts.reference(link.target,{threadId,cwd,name:link.name,role,turnId})).filter(Boolean):[];
  return {id,turnId,outputs,clientId:item.clientId||null,role,kind:type,label,text,images,status,phase:item.phase||null};
 }
