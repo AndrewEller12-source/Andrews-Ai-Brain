@@ -1,0 +1,29 @@
+name: Publish verified 0.7.1
+on:
+  push:
+    paths: ['.github/workflows/publish-0.7.1.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets && cd assets
+          for f in Ai-Task-Manager-Mac-0.7.1.zip Ai-Task-Manager-Source-0.7.1.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://florida-humor-greene-endangered.trycloudflare.com/$f" -o "$f"
+          done
+          echo '826758aa7a995850570fe3e2c0658976f0ba8e2d7ef4c92e44a08e899553641f  Ai-Task-Manager-Mac-0.7.1.zip' | sha256sum -c -
+          echo '5c21f01367953b869f9d862e6a718ab6f180bf2942e0db0693768a7e4024ad65  Ai-Task-Manager-Source-0.7.1.zip' | sha256sum -c -
+          echo '5c4181d773cd72352356ec37bf2892bd915f3cc2bb6ba86ea70e80d770388c68  appcast.xml' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - name: Publish signed Mac update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create v0.7.1 assets/* --title 'Ai Task Manager 0.7.1' --latest --notes 'Roomier conversations, working downloads, and an Outputs tab for shared files, photos, sources and previews. Command-log endpoints are excluded from Outputs. Refresh, phone pairing and update checks are in Workspace. Download the Mac ZIP, unzip it and replace the app in Applications. Apple silicon Mac, macOS 14+. Sign into your own Codex account. Signed in-app updates are included and installation waits for active requests to finish. This developer build is not Apple-notarized: if blocked on first launch use Privacy & Security > Open Anyway. Editable source is included separately; no account credentials or personal chats are included.'
