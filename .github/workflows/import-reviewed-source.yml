@@ -1,0 +1,23 @@
+name: Import reviewed source
+on:
+  push:
+    paths: ['.github/workflows/import-reviewed-source.yml']
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and import source
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://github.com/AndrewEller12-source/Andrews-Ai-Brain/releases/download/v0.7.0/Ai-Task-Manager-Source-0.7.0.zip -o /tmp/source.zip
+          echo 'b176e315726d54b1ef775c1bf2ec37ff2972edd2525132b55c63e2294dfd1737  /tmp/source.zip' | sha256sum -c -
+          unzip -q /tmp/source.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. .
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Import reviewed editable Ai Task Manager 0.7.0 source'
+          git push
