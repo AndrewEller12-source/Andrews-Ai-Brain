@@ -62,8 +62,10 @@ Approval behavior follows the [official Codex approval and security documentatio
 
 ## Separate universes
 
-Choose **All Codex** at the top to see your entire account, or choose **New universe** to start a focused workplace such as Vending Business or Design Studio. Give it a name and a short description. Leave existing work unchecked to start completely blank.
+Choose **All Codex** at the top to see your entire account, or choose **New universe** to start a focused workplace such as Vending Business or Design Studio. Give it a name and a short description. Automatic discovery is on by default: Codex looks for related previous work and keeps watching new task activity. To start completely blank, turn off automatic discovery and leave existing work unchecked.
 
 Requests sent inside a universe stay there. Its departments grow from that work, and actual child agents follow their parent task. Each universe has its own manager records and master-chat draft. Manager reviews use the existing organization automation setting and your Codex account; standby records are not running agents.
 
 Use **Edit universe → Include existing work** to include individual tasks or projects. Including a project includes its existing and future tasks. This is organization within your account, not a separate account or file-access sandbox. Switching back to **All Codex** always shows the combined work.
+
+Automatic matches include a reason and a supporting conversation excerpt under **Edit universe → Automatically included**. Uncheck a match to exclude it; exclusions stay saved and inform future matching. Matching uses the universe description, owner-selected examples, new requests in that universe, task titles and available conversation excerpts. It runs in the background using your Codex account, caches unchanged tasks, and leaves uncertain matches out. It organizes existing tasks without moving their files or restarting their work.

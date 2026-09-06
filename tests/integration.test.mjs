@@ -240,3 +240,15 @@ test('universe HTTP lifecycle persists empty worlds and scopes router catalogs a
  const follow=await f.post('/api/intake',{messages:['Continue here'],requestKey:'world-followup',options:{threadId:done.threadId}});assert.equal(follow.status,202);assert.equal((await f.get()).jobs.find(j=>j.id===follow.body.ids[0]).universeId,universeId);
  await f.post('/api/settings',{paused:true});await f.stop();const next=await fixture(t,{dir:f.dir});assert.equal((await next.get()).universes[0].id,universeId);
 });
+
+test('creating a universe automatically discovers old work and later new native tasks without starting worker jobs',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'discovery-http-')),catalogFile=path.join(dir,'catalog.json');
+ const catalog=[{id:'old-payment',name:'Reconcile Nayax settlements',preview:'Card-reader settlements for vending machines',cwd:dir,path:'',updatedAt:1},{id:'photo',name:'Retouch wedding photos',preview:'Photoshop work',cwd:dir,path:'',updatedAt:1}];fs.writeFileSync(catalogFile,JSON.stringify(catalog));
+ const f=await fixture(t,{dir,catalogFile});const created=await f.post('/api/universes',{name:'Vending Business'});assert.equal(created.status,200);
+ let u=await until(async()=>{const s=await f.get();return s.universes.find(u=>u.id===created.body.id&&u.automaticMatches?.['old-payment'])},10000,()=>f.get());
+ assert.deepEqual(u.threadIds,['old-payment']);assert.match(u.automaticMatches['old-payment'].reason,/Vending/);assert.equal((await f.get()).jobs.length,0);assert.equal((await f.get()).threads.length,2);
+ catalog.push({id:'new-route',name:'Plan vending service routes',preview:'Visit machine locations',cwd:dir,path:'',updatedAt:2});fs.writeFileSync(catalogFile,JSON.stringify(catalog));
+ u=await until(async()=>{const s=await f.get();return s.universes.find(u=>u.automaticMatches?.['new-route'])},15000,()=>f.get());assert.equal(u.threadIds.length,2);
+ await f.post('/api/universes',{id:u.id,name:u.name,autoDiscover:true,excludedThreadIds:['old-payment']});u=(await f.get()).universes[0];assert.equal(u.threadIds.includes('old-payment'),false);assert.equal(u.threadIds.includes('new-route'),true);
+ assert.equal((await f.get()).jobs.length,0);
+});
