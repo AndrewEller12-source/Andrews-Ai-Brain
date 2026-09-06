@@ -1,0 +1,46 @@
+name: Publish verified 0.9.1
+on:
+  push:
+    paths: ['.github/workflows/publish-0.9.1.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.9.1.zip Ai-Task-Manager-Source-0.9.1.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://silence-tramadol-kid-flash.trycloudflare.com/$f" -o "$f"
+          done
+          echo 'd02fffc08eb107197ca72448a9b15b36d7939e2d1f8c48b97af9ee29b5a3a961  Ai-Task-Manager-Mac-0.9.1.zip' | sha256sum -c -
+          echo '78ede4e3f69bd9a92bf593a6a040669f1a491cda0e7502c7f983ef40f37ea8d4  Ai-Task-Manager-Source-0.9.1.zip' | sha256sum -c -
+          echo '97ee1ed8517f6c920bb7c4e126d949cbcd5697fd3a90069baf69b5cbc59edf12  appcast.xml' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - name: Publish signed Mac update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create v0.9.1 assets/* --title 'Ai Task Manager 0.9.1' --latest --notes 'Universes now discover related existing Codex tasks automatically and keep reviewing new conversation evidence. Matching learns from the universe description, owner-selected examples and work sent there. Verified source excerpts and high confidence are required; generic owner biography text is excluded. Automatic matches explain why they were included, and saved exclusions inform later matching. Unchanged history is cached and the scan runs in the background without creating worker jobs. All Codex and manual inclusion remain available. 197 tests passed plus targeted final evidence checks; an isolated live Codex scan found prior Nayax business work. Signed Mac update and editable source included.'
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          unzip -q assets/Ai-Task-Manager-Source-0.9.1.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Discover related universe history with evidence and saved feedback in 0.9.1'
+          git push
+
+
+
