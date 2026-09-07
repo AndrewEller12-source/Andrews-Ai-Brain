@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { JSDOM } from 'jsdom';
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const script=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const style=fs.readFileSync(new URL('../style.css',import.meta.url),'utf8');
 const snapshot=overrides=>({connected:true,account:{status:'signedIn',email:'trey@example.com',planType:'plus'},login:{},capabilities:{cliAvailable:true},departments:['Engineering','Operations','Purchasing','Growth','Finance','Executive'],jobs:[],threads:[],models:[{model:'gpt-5.4',displayName:'GPT 5.4',supportedReasoningEfforts:[]}],projects:[{projectId:'p1',path:'/projects/shop',label:'Shop'}],approvals:[],settings:{concurrency:4,paused:false},...overrides});
 function app(state=snapshot(),handler){
  const dom=new JSDOM(html,{url:'http://127.0.0.1:4780',runScripts:'outside-only',pretendToBeVisual:true});const {window:w}=dom,calls=[],timers=[];let events;const nativeInterval=w.setInterval.bind(w);w.setInterval=(callback,ms)=>{timers.push({callback,ms});return nativeInterval(callback,ms)};
@@ -60,11 +61,33 @@ test('titled service choices submit their value and unsupported decisions give a
 test('incoming state updates the map while graph search keeps focus and caret',()=>{
  const a=app(snapshot({connected:false,threads:[]}));const search=a.$('#graph-search');search.value='Browser QA';search.dispatchEvent(new a.w.Event('input'));a.$('#graph-search').focus();a.$('#graph-search').setSelectionRange(4,4);a.update(snapshot({threads:[{id:'browser',title:'Browser QA smoke',department:'Engineering',cwd:'/projects/shop',recordedStatus:'completed'}]}));assert.match(a.$('.map-coordinate.top-right').textContent,/Engine connected/);assert.match(a.$('.map-count').textContent,/1 \/ 1/);assert.equal(a.w.document.activeElement,a.$('#graph-search'));assert.equal(a.$('#graph-search').value,'Browser QA');assert.equal(a.$('#graph-search').selectionStart,4);a.close();
 });
-test('desktop agents pulse through department, project, task and subagent links',()=>{
+test('desktop agents pulse through their own orb, department, project, task and subagent links',()=>{
  const threads=[{id:'parent',title:'Install Codex SDK',department:'Engineering',cwd:'/projects/shop',activity:{state:'running',source:'desktop',observedAt:Date.now(),turnId:'turn-parent'}},{id:'child',parentThreadId:'parent',title:'Verify SDK integration',department:'Engineering',cwd:'/projects/shop',activity:{state:'running',source:'desktop',observedAt:Date.now(),turnId:'turn-child',agentName:'Verifier'}}];const a=app(snapshot({threads}));assert.equal(a.$('#metrics .metric-value strong').textContent,'2');assert.match(a.$('#metrics').textContent,/Active agents/);assert.equal(a.w.document.querySelectorAll('.node-running').length,2);assert.ok(a.$('.branch-live .trunk.signal-edge'));assert.ok(a.$('.project-running'));assert.ok(a.$('.project-edge.signal-edge'));assert.ok(a.$('.parent-edge.signal-edge'));a.$('[data-task="parent"]').dispatchEvent(new a.w.Event('click'));assert.match(a.$('#inspector').textContent,/Codex desktop/);assert.match(a.$('#inspector').textContent,/observed Just now/);a.close();
 });
 test('unknown desktop events never pulse and running counts deduplicate resumed requests',()=>{
  const activity={state:'running',source:'desktop',observedAt:Date.now(),turnId:'desktop-current'};const a=app(snapshot({jobs:[{id:'j1',threadId:'t1',title:'First request',department:'Engineering',status:'completed',createdAt:1},{id:'j2',threadId:'t1',title:'Second request',department:'Engineering',status:'completed',createdAt:2}],threads:[{id:'t1',title:'Shared agent',department:'Engineering',cwd:'/projects/shop',activity},{id:'stale',title:'Stale turn',department:'Operations',recordedStatus:'possibly_running',activity:{state:'unknown',source:'events',observedAt:1}}]}));assert.equal(a.$('#metrics .metric-value strong').textContent,'1');assert.equal(a.w.document.querySelectorAll('.node-running').length,1);assert.equal(a.$('[data-task="stale"]').classList.contains('node-running'),false);a.$('[data-view="requests"]').click();assert.equal(a.w.document.querySelectorAll('tbody tr').length,2);a.close();
+});
+test('working and recently active subagents use persistent, distinct orb states',()=>{
+ const now=Date.now(),threads=[
+  {id:'parent',title:'Parent',department:'Engineering',cwd:'/projects/shop',activity:{state:'running',source:'desktop',observedAt:now}},
+  {id:'live-child',parentThreadId:'parent',title:'Live child',department:'Engineering',cwd:'/projects/shop',activity:{state:'running',source:'desktop',observedAt:now}},
+  {id:'recent-child',parentThreadId:'parent',title:'Recent child',department:'Engineering',cwd:'/projects/shop',lastEventAt:new Date(now-60000).toISOString(),activity:{state:'unknown',source:'events'}}
+ ];
+ const a=app(snapshot({threads}));
+ assert.ok(a.$('.task-node.node-running[data-task="parent"] .working-orb-ring'));
+ const liveChild=a.$('.task-node.node-running.node-subagent[data-task="live-child"]');
+ assert.ok(liveChild.querySelector('.working-orb-ring'));
+ assert.ok(liveChild.querySelector('.subagent-orb-track'));
+ assert.match(liveChild.textContent,/Sub-agent · working/);
+ assert.match(liveChild.getAttribute('aria-label'),/Sub-agent working/);
+ assert.match(style,/\.node-subagent\.node-running \.working-orb-ring[^}]+animation:subagent-orb-breath/);
+ assert.match(style,/\.node-subagent\.node-running \.subagent-orb-track[^}]+animation:subagent-orb-orbit[^}]+infinite/);
+ assert.match(style,/@media\(prefers-reduced-motion:reduce\)/);
+ assert.match(style,/\.node-subagent\.node-running \.subagent-orb-track\{r:20px;opacity:\.68;stroke-dasharray:none\}/);
+ assert.ok(a.$('.task-node.node-recent[data-task="recent-child"] .working-orb-ring'));
+ assert.match(a.$('.task-node[data-task="recent-child"]').getAttribute('aria-label'),/Sub-agent with recent activity, live status unconfirmed/);
+ assert.equal(a.$('#metrics .metric-value strong').textContent,'2');
+ a.close();
 });
 test('all running agents remain visible beyond history project and leaf caps',()=>{
  const threads=Array.from({length:15},(_,i)=>({id:'active-'+i,title:'Active agent '+i,department:'Engineering',cwd:'/projects/project-'+Math.floor(i/3),activity:{state:'running',source:'desktop',observedAt:Date.now(),turnId:'turn-'+i}}));const a=app(snapshot({threads}));assert.equal(a.w.document.querySelectorAll('.node-running').length,15);assert.equal(a.w.document.querySelectorAll('.project-running').length,5);a.$('#graph-filter').value='live';a.$('#graph-filter').dispatchEvent(new a.w.Event('change'));assert.equal(a.w.document.querySelectorAll('.node-running').length,15);a.close();
