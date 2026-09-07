@@ -3,7 +3,7 @@
 This is a local Codex workspace with a shared inbox, department map, durable task queue and reviewable agent actions. It uses your own Codex account and folders. It is a beta, not a complete replacement for every Codex desktop feature.
 
 1. In **Apple menu → About This Mac**, check whether the Mac lists an Apple M-series chip or an Intel processor.
-2. Extract **Rewster-Command-0.2.0-macOS-arm64.zip** for Apple Silicon, or **Rewster-Command-0.2.0-macOS-x64.zip** for Intel. Keep the entire extracted folder together. The Mac packages include Node.js, the Codex CLI and SDK; no Node or npm installation is needed.
+2. Extract **Ai-Task-Manager-0.10.0-macOS-arm64.zip** for Apple Silicon, or **Ai-Task-Manager-0.10.0-macOS-x64.zip** for Intel. Keep the entire extracted folder together. The Mac packages include Node.js, the Codex CLI and SDK; no Node or npm installation is needed.
 3. Double-click **Start Rewster Command.command**. It starts the local app and opens the dashboard. macOS may ask permission to open the downloaded unsigned launcher. This is a local app folder, not a signed native installer.
 4. Use the dashboard's account sign-in to connect your ChatGPT account. If you are already signed in to Codex locally, the dashboard uses that account. Complete authentication only on the official login page. Never paste a password or token into a task.
 5. Add a local project folder or send a simple request without one. Ask `What is 17 times 23?` first, then open the resulting task and send a follow-up.
@@ -24,6 +24,8 @@ To run in the foreground, use `npm start`. To stop a launcher-started app, use `
 ## Working normally
 
 Send a message in the inbox. Auto routing chooses an available model and a project when it has enough context. Select a project/model yourself when you want control. Batch intake accepts one independent request per line; execution uses a bounded queue, so fifty queued requests does not mean fifty models execute at once. Open the task details to inspect results, continue the conversation or respond to approval requests.
+
+When an agent is already working, open its conversation and the composer changes to **Steer this agent now**. That message is delivered into the exact active turn immediately instead of waiting in the follow-up queue. A normal follow-up starts when the conversation is idle. The Workspace menu and Account & settings also link to the official Codex cloud and ChatGPT sites; those remote conversations remain separate from local task history.
 
 Projects are directories on your own computer. A new Git task works in an isolated checkout of committed HEAD; uncommitted changes are not copied. Use the reported task workspace for the resulting files. Desktop tasks appear as recorded history, while dashboard-started tasks have live execution controls. Do not run the same task concurrently in both clients.
 

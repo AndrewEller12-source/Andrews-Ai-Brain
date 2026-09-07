@@ -3,7 +3,8 @@ import fs from 'node:fs';import os from 'node:os';import path from 'node:path';i
 import {execFileSync,spawnSync}from'node:child_process';import assert from 'node:assert/strict';import {createHash}from'node:crypto';import {fileURLToPath}from'node:url';
 if(process.platform!=='darwin')throw Error('Run this verification on macOS.');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const archive=path.resolve(process.argv[2]||path.join(root,'dist',`Rewster-Command-0.2.0-macOS-${process.arch}.zip`));
+const version=JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version;
+const archive=path.resolve(process.argv[2]||path.join(root,'dist',`Ai-Task-Manager-${version}-macOS-${process.arch}.zip`));
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-bundled-install-')),app=path.join(temp,'Rewster Command'),home=path.join(temp,'recipient');fs.mkdirSync(home);
 const probe=http.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
 try{

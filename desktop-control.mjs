@@ -18,7 +18,7 @@ export class DesktopControl{
  supports(){return !this.closed&&this.observer.connected===true&&nonempty(this.observer.clientId);}
  hasOwner(threadId){return this.supports()&&nonempty(threadId)&&nonempty(this.observer.records?.get(threadId)?.owner);}
  owner(threadId){if(!this.supports())throw Error('Codex desktop is disconnected.');if(!this.hasOwner(threadId))throw Error('This task has no confirmed desktop owner. Open it in Codex first.');return this.observer.records.get(threadId);}
- async startTurn(threadId,{prompt,images=[],clientId,model,effort,approvalMode}={}){
+  async startTurn(threadId,{prompt,images=[],clientId,model,effort,approvalMode}={}){
   const record=this.owner(threadId);
   if(!idleStates.has(record.activity?.state))throw Error('This desktop task is active or its state is unknown. Wait for it to finish.');
   if([...this.pending.values()].some(p=>p.threadId===threadId))throw Error('A desktop request for this task is already awaiting confirmation.');
@@ -32,8 +32,23 @@ export class DesktopControl{
   const result=await this.request(threadId,record.owner,'thread-follower-start-turn',2,{conversationId:threadId,turnStart:{request,context:{inheritThreadSettings:true}}});
   const turnResult=result?.result;
   if(!nonempty(turnResult?.turn?.id))throw uncertainError('Desktop accepted the request without a usable turn receipt. Inspect the task before repeating it.');
-  return turnResult;
- }
+   return turnResult;
+  }
+  async steerTurn(threadId,{turnId,prompt,images=[],clientId}={}){
+   const record=this.owner(threadId);
+   if(!nonempty(turnId))throw Error('An exact turn ID is required to steer a desktop turn.');
+   if(record.activity?.turnId!==turnId)throw Error('The requested turn is no longer the observed desktop turn. Refresh its state before steering.');
+   if(!['running','waiting'].includes(record.activity?.state))throw Error('The observed desktop turn is not running.');
+   if([...this.pending.values()].some(p=>p.threadId===threadId))throw Error('A desktop request for this task is already awaiting confirmation.');
+   if(!nonempty(prompt)&&!images.length)throw Error('Enter a message or attach a photo.');
+   if(clientId!==undefined&&!nonempty(clientId))throw Error('Client message ID must be a nonempty string.');
+   if(!Array.isArray(images)||images.length>8||images.some(i=>i.type!=='localImage'||!nonempty(i.path)))throw Error('Invalid image input');
+   const input=[...(nonempty(prompt)?[{type:'text',text:prompt,text_elements:[]}]:[]),...images];
+   const result=await this.request(threadId,record.owner,'thread-follower-steer-turn',1,{conversationId:threadId,clientUserMessageId:clientId??randomUUID(),input});
+   const turnResult=result?.result;
+   if(turnResult?.turnId!==turnId)throw uncertainError('Desktop accepted the steering message without a matching turn receipt. Inspect the task before sending it again.');
+   return turnResult;
+  }
  async interrupt(threadId,turnId){
   const record=this.owner(threadId);
   if(!nonempty(turnId))throw Error('An exact turn ID is required to stop a desktop turn.');

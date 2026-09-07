@@ -3,10 +3,11 @@ import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {execFileSync} from 'node:child_process';import {fileURLToPath} from 'node:url';import {createHash} from 'node:crypto';
 import {stageRelease} from './package-release.mjs';
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const version=JSON.parse(fs.readFileSync(path.join(source,'package.json'))).version;
 const arch=process.argv[2]||process.arch;if(!['arm64','x64'].includes(arch))throw Error('Choose arm64 or x64');
 const nodeVersion='v24.19.0',nodeFile=`node-${nodeVersion}-darwin-${arch}.tar.gz`,base=`https://nodejs.org/dist/${nodeVersion}/`;
 const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-mac-build-')),folder='Rewster Command',staged=path.join(temporary,folder);
-const output=path.join(source,'dist',`Rewster-Command-0.2.0-macOS-${arch}.zip`);
+const output=path.join(source,'dist',`Ai-Task-Manager-${version}-macOS-${arch}.zip`);
 async function download(url){const res=await fetch(url,{signal:AbortSignal.timeout(120000)});if(!res.ok)throw Error(`Download failed: ${res.status} ${url}`);return Buffer.from(await res.arrayBuffer());}
 try{
  stageRelease(source,staged);
@@ -25,7 +26,7 @@ try{
  fs.writeFileSync(path.join(notices,'README.txt'),`Node.js ${nodeVersion}: https://nodejs.org/ (full license in runtime/LICENSE).\nOpenAI Codex CLI and TypeScript SDK 0.153.4: https://github.com/openai/codex/tree/rust-v0.153.4 . Codex license/notice reproduced here; SDK LICENSE is included in node_modules/@openai/codex-sdk.\nOriginal published npm packages are included without modification.\n`);
  const entries=[];
  function walk(directory){for(const name of fs.readdirSync(directory)){const file=path.join(directory,name),relative=path.relative(staged,file).split(path.sep).join('/'),stat=fs.lstatSync(file);if(relative==='RELEASE-MANIFEST.json')continue;if(stat.isSymbolicLink()){const target=fs.readlinkSync(file);const resolved=path.resolve(path.dirname(file),target);if(!resolved.startsWith(staged+path.sep))throw Error('External symlink in package');entries.push({file:relative,link:target});}else if(stat.isDirectory()){if(['.local','.codex'].includes(name))throw Error('Private folder in package');walk(file);}else{entries.push({file:relative,sha256:createHash('sha256').update(fs.readFileSync(file)).digest('hex')});}}}
- walk(staged);fs.writeFileSync(path.join(staged,'RELEASE-MANIFEST.json'),JSON.stringify({application:'Rewster Command',version:'0.2.0',platform:'darwin',architecture:arch,nodeVersion,nodeSource:base+nodeFile,nodeSha256:expected,files:entries},null,2)+'\n');
+ walk(staged);fs.writeFileSync(path.join(staged,'RELEASE-MANIFEST.json'),JSON.stringify({application:'Ai Task Manager',version,platform:'darwin',architecture:arch,nodeVersion,nodeSource:base+nodeFile,nodeSha256:expected,files:entries},null,2)+'\n');
  fs.mkdirSync(path.dirname(output),{recursive:true});fs.rmSync(output,{force:true});execFileSync('zip',['-q','-y','-r',output,folder],{cwd:temporary,timeout:180000});
  console.log(JSON.stringify({archive:output,architecture:arch,files:entries.length,bytes:fs.statSync(output).size,nodeSha256:expected}));
 }finally{fs.rmSync(temporary,{recursive:true,force:true});}

@@ -9,8 +9,9 @@ export const canRetry=job=>['failed','uncertain'].includes(job.status)&&!job.exe
 const stable=value=>JSON.stringify(value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.keys(value).sort().map(k=>[k,value[k]])):value);
 export class Store{
  constructor(file){this.file=file;fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});this.data=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{jobs:[],settings:{concurrency:4,paused:false},overrides:{},projects:[]};
- this.data.settings={concurrency:4,paused:false,...this.data.settings};if(!approvalModes.includes(this.data.settings.approvalMode))this.data.settings.approvalMode='manual';this.data.overrides??={};this.data.projects??=[];migrateOrganization(this.data);
+ this.data.settings={concurrency:4,paused:false,...this.data.settings};if(!approvalModes.includes(this.data.settings.approvalMode))this.data.settings.approvalMode='manual';this.data.overrides??={};this.data.projects??=[];this.data.steers??=[];migrateOrganization(this.data);
  for(const j of this.data.jobs){j.events??=[];j.options??={};}
+ for(const receipt of this.data.steers)if(receipt.status==='sending'){receipt.status='uncertain';receipt.error='The dashboard restarted before steering delivery was confirmed. Check the active conversation before sending it again.';}
  for(const j of this.data.jobs)if(['running','routing','review','starting'].includes(j.status)){if(j.executionDispatched===undefined&&['starting','running','review'].includes(j.status))j.executionDispatched=true;j.status='uncertain';j.error='The dashboard restarted during this request. Inspect the task before retrying; it may have run.'}this.save();}
  save(){const tmp=this.file+'.tmp';const fd=fs.openSync(tmp,'w',0o600);try{fs.writeFileSync(fd,JSON.stringify(this.data));fs.fsyncSync(fd)}finally{fs.closeSync(fd)}fs.renameSync(tmp,this.file);}
  accept(messages,key,options={},managed={}){

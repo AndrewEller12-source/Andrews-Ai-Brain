@@ -24,11 +24,13 @@ The pinned `@openai/codex` native CLI is preferred by default. `CODEX_BIN` overr
 ## Use
 
 - Open **Working now** to see each unfinished request with its exact message, chat, department/project, execution clock and latest activity. The oldest execution appears first; **5+ minutes** isolates long-running work. Queued follow-ups remain separate from the current turn, and completed requests leave the list automatically. Desktop messages are retrieved by exact turn ID; unavailable text is never replaced with an old message.
+- Open a working agent's conversation to **Steer this agent now**. The message is appended to the exact active turn immediately and receives a durable delivery receipt; it does not wait behind the current turn or create a second turn. If delivery cannot be confirmed, the dashboard preserves the draft and will not silently replay it.
 - Send normal requests; automatic routing selects a project and available model. Explicit project/model choices take priority.
 - Batch accepts one independent request per line, up to 100. Worker capacity controls execution; intake speed does not promise equal model concurrency.
 - Click any branch wire or node to explore its department, project or agent. The branch directory exposes every matching agent, including agents beyond map display limits. Agent details link to parent and child agents; Enter/Space activates map controls and Escape closes details. Search and filters also apply to the list view.
 - Open task details to read events, inspect results, continue work, resolve approvals or stop a dashboard turn.
 - Pause dispatch prevents queued work from starting while already-running work continues.
+- Use **Workspace → Open Codex cloud** or **Open ChatGPT** for the official web experiences. These are secure external links; remote web history is not presented as local task history.
 
 The graph connects departments, project folders, tasks and explicit subagents. Confirmed running desktop and dashboard tasks pulse along their branches. A brief amber flash means newly recorded subagent activity; it does not establish a running status. Unknown activity is counted separately. Completions carry the department, project and exact task/turn, persist across restarts, and remain unread until acknowledged.
 
@@ -77,4 +79,4 @@ Each conversation has its own saved text, attachment IDs and retry receipt. Phot
 
 The timeline loads Codex's paginated stored items and displays user-visible messages, image generations, image views and supported tool image results. Local Markdown image results inside the task workspace receive photo cards. External images remain explicit source links. Missing files have an unavailable preview; the app does not pretend to capture a live Photoshop canvas. Image storage is currently limited to 2 GB per installation.
 
-Protocol reference: [Codex app-server documentation](https://learn.chatgpt.com/docs/app-server). Browser and HTTP tests use an isolated deterministic Codex protocol fixture; those tests verify image routing and rendering, not the quality of model-generated designs.
+Protocol reference: [Codex app-server documentation](https://developers.openai.com/codex/app-server). Browser and HTTP tests use an isolated deterministic Codex protocol fixture; those tests verify image routing and rendering, not the quality of model-generated designs.

@@ -57,6 +57,13 @@ test('an active desktop owner holds a continuation ready without sending native 
  assert.ok(!f.seen.some(m=>m.method?.startsWith('thread-follower-')));assert.ok(!f.rpcCalls().some(m=>m.method==='thread/resume'||m.method==='turn/start'&&m.params.threadId===threadId));assert.equal((await f.get()).notifications.length,0);
 });
 
+test('an active desktop owner receives steering immediately without queuing a new turn',async t=>{
+ const f=await environment(t,{onNativeRequest:(m,socket)=>{if(m.method==='thread-follower-steer-turn')socket.write(frame({type:'response',requestId:m.requestId,method:m.method,handledByClientId:'desktop-owner',resultType:'success',result:{result:{turnId}}}));}});
+ const result=await f.post('/api/steer',{threadId,expectedTurnId:turnId,message:'Use the smaller implementation.',attachments:[],requestKey:'desktop-steer-receipt'});assert.equal(result.status,200);assert.equal(result.body.receipt.status,'delivered');assert.equal(result.body.receipt.runtime,'desktop');
+ const request=f.seen.find(m=>m.method==='thread-follower-steer-turn');assert.equal(request.version,1);assert.equal(request.targetClientId,'desktop-owner');assert.equal(request.params.conversationId,threadId);assert.equal(request.params.clientUserMessageId,'desktop-steer-receipt');assert.equal(request.params.input[0].text,'Use the smaller implementation.');
+ assert.ok(!f.rpcCalls().some(m=>m.method==='turn/steer'||m.method==='turn/start'&&m.params.threadId===threadId));assert.equal((await f.get()).jobs.length,0);
+});
+
 test('a different desktop turn cannot become this request receipt while native start confirmation is pending',async t=>{
  let pending;const f=await environment(t,{recorded:'completed',initial:snapshot('idle','completed'),onNativeRequest:(m,socket)=>{pending={m,socket}}});
  const r=await f.post('/api/intake',{messages:['Resume with an exact receipt'],requestKey:'native-receipt-race',options:{threadId}});assert.equal(r.status,202);await until(()=>pending);

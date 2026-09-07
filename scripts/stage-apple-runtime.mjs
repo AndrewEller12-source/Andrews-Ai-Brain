@@ -7,8 +7,9 @@ import {createHash} from 'node:crypto';
 import {stageRelease} from './package-release.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const version=JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version;
 const arch=process.argv.includes('--x64')?'x64':'arm64';
-const archive=path.join(root,'dist',`Rewster-Command-0.2.0-macOS-${arch}.zip`);
+const archive=path.join(root,'dist',`Ai-Task-Manager-${version}-macOS-${arch}.zip`);
 if(!fs.existsSync(archive)||process.argv.includes('--fresh'))execFileSync(process.execPath,[path.join(root,'scripts/package-mac.mjs'),arch],{stdio:'inherit'});
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'brain-apple-runtime-'));
 const output=path.join(root,'apple','Runtime');

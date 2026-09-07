@@ -31,15 +31,16 @@ export function stageRelease(source,destination) {
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+  const version=JSON.parse(fs.readFileSync(path.join(source,'package.json'))).version;
   const output=path.resolve(process.argv[2]||path.join(source,'dist'));
   const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-release-'));
   try{
     const folder='Rewster Command';stageRelease(source,path.join(temporary,folder));fs.mkdirSync(output,{recursive:true});
-    const archive=path.join(output,'Rewster-Command-0.2.0.tar.gz');
+    const archive=path.join(output,`Ai-Task-Manager-${version}.tar.gz`);
     execFileSync('tar',['-czf',archive,'-C',temporary,folder]);
     console.log(archive);
     if(process.platform!=='win32'){
-      const zip=path.join(output,'Rewster-Command-0.2.0.zip');
+      const zip=path.join(output,`Ai-Task-Manager-${version}.zip`);
       try{fs.rmSync(zip,{force:true});execFileSync('zip',['-q','-r',zip,folder],{cwd:temporary});console.log(zip);}catch(error){console.warn(`ZIP unavailable; tar.gz is ready (${error.message}).`);}
     }
   }finally{fs.rmSync(temporary,{recursive:true,force:true});}
