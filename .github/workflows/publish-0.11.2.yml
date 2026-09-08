@@ -1,0 +1,52 @@
+name: Publish verified 0.11.2
+on:
+  push:
+    paths: ['.github/workflows/publish-0.11.2.yml']
+permissions:
+  contents: write
+concurrency:
+  group: publish-0.11.2
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify signed release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.11.2.zip Ai-Task-Manager-Source-0.11.2.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://potter-several-recorders-plates.trycloudflare.com/$f" -o "$f"
+          done
+          echo '4448d660c6f529d34eda3aec37a98417252fa90f6b724342a1a91ed0a14847f2  Ai-Task-Manager-Mac-0.11.2.zip' | sha256sum -c -
+          echo 'f08342128ac391ea348c63b40af2e87c0bb4bf379f3e2999967eff87edd2ba37  Ai-Task-Manager-Source-0.11.2.zip' | sha256sum -c -
+          echo 'c57a63d26da85fbf3aaca801968e24908b56dbb96f79d98d80c9a0238f87fd3e  appcast.xml' | sha256sum -c -
+          echo '921ba55eb00e633b1a7d94b1cf40f449544b5bb9426f52e5c97168e14c67d9d9  SHA256SUMS.txt' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          set -euo pipefail
+          unzip -q assets/Ai-Task-Manager-Source-0.11.2.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Publish objective-based department routing in 0.11.2'
+          git push
+      - name: Upload draft and publish complete update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(git -C checkout rev-parse HEAD)
+          gh release create v0.11.2 assets/* --target "$target" --draft --title 'Ai Task Manager 0.11.2' --notes 'Routes work by its primary requested outcome. Company formation and business planning use Strategy & Management; owning a 3D printer, listing available equipment or mentioning hypothetical opportunities does not define the task department. Semantic routing into broad departments now survives refreshes, and manual branch assignments persist across restart. Genuine printing work retains its specialty. Includes all 0.11.1 question inbox, explicit queue/steer, send-now, universe isolation, delete/restore and completion cleanup improvements. Verified with 42 routing, persistence and HTTP integration tests, a clean-account packaged-runtime check, exact source manifest comparison, code signing and Sparkle update signature verification. Native shell is unchanged from the verified 0.11.1 release. Signed Mac update and editable source included.'
+          gh release edit v0.11.2 --draft=false --latest
