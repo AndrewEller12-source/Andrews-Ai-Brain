@@ -5,6 +5,14 @@ import os from 'node:os';
 import path from 'node:path';
 import {Store,canRun,validateRoute,chooseModel,canRetry} from '../core.mjs';
 function store(){return new Store(path.join(fs.mkdtempSync(path.join(os.tmpdir(),'rewster-queue-')),'state.json'))}
+test('progress writes coalesce while accepted requests remain immediately durable',async()=>{
+ const s=store();let writes=0;const save=s.save.bind(s);s.save=()=>{writes++;save()};
+ for(let i=0;i<100;i++){s.data.progress=i;s.saveSoon()}
+ assert.equal(writes,0);assert.equal(JSON.parse(fs.readFileSync(s.file)).progress,undefined);
+ await new Promise(resolve=>setTimeout(resolve,1100));assert.equal(writes,1);assert.equal(JSON.parse(fs.readFileSync(s.file)).progress,99);
+ s.data.progress=100;s.saveSoon();s.accept(['Durable request'],'coalesced-receipt');
+ const saved=JSON.parse(fs.readFileSync(s.file));assert.equal(saved.jobs.length,1);assert.equal(saved.progress,100);assert.equal(s.saveTimer,null);
+});
 test('50 distinct requests persist across restart without duplicates on retry',()=>{const s=store(),start=performance.now();for(let i=0;i<50;i++)s.accept(['Request '+i],'burst-key-'+i);const elapsed=performance.now()-start;assert.equal(s.data.jobs.length,50);for(let i=0;i<50;i++)s.accept(['Request '+i],'burst-key-'+i);assert.equal(s.data.jobs.length,50);assert.equal(new Store(s.file).data.jobs.length,50);assert.ok(elapsed<60000);console.log(`50 durable receipts: ${elapsed.toFixed(1)}ms`)});
 test('idempotency key cannot silently discard different text',()=>{const s=store();s.accept(['Original'],'repeat-key');assert.throws(()=>s.accept(['Changed'],'repeat-key'),/different messages/)});
 test('restart never replays in-flight work automatically',()=>{const s=store();const [j]=s.accept(['Work'],'restart-key');s.update(j.id,{status:'running',threadId:'existing'});const recovered=new Store(s.file);assert.equal(recovered.data.jobs[0].status,'uncertain');assert.equal(recovered.data.jobs[0].threadId,'existing')});

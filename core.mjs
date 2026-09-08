@@ -12,7 +12,10 @@ export class Store{
  this.data.settings={concurrency:4,paused:false,...this.data.settings};if(!approvalModes.includes(this.data.settings.approvalMode))this.data.settings.approvalMode='manual';this.data.overrides??={};this.data.projects??=[];this.data.steers??=[];for(const receipt of [...this.data.steers,...Object.values(this.data.ownerMessages||{})])if(receipt.status==='sending'){receipt.status='uncertain';receipt.error='The dashboard restarted before delivery was confirmed. Inspect the active conversation before sending again.';}migrateOrganization(this.data);
  for(const j of this.data.jobs){j.events??=[];j.options??={};}
  for(const j of this.data.jobs)if(['running','routing','review','starting'].includes(j.status)){if(j.executionDispatched===undefined&&['starting','running','review'].includes(j.status))j.executionDispatched=true;j.status='uncertain';j.error='The dashboard restarted during this request. Inspect the task before retrying; it may have run.'}this.save();}
- save(){const tmp=this.file+'.tmp';const fd=fs.openSync(tmp,'w',0o600);try{fs.writeFileSync(fd,JSON.stringify(this.data));fs.fsyncSync(fd)}finally{fs.closeSync(fd)}fs.renameSync(tmp,this.file);}
+ // Progress can arrive hundreds of times per second. Coalesce only telemetry;
+ // intake, dispatch receipts, approvals and terminal states still call save().
+ saveSoon(){if(!this.saveTimer)this.saveTimer=setTimeout(()=>this.save(),1000);}
+ save(){clearTimeout(this.saveTimer);this.saveTimer=null;const tmp=this.file+'.tmp';const fd=fs.openSync(tmp,'w',0o600);try{fs.writeFileSync(fd,JSON.stringify(this.data));fs.fsyncSync(fd)}finally{fs.closeSync(fd)}fs.renameSync(tmp,this.file);}
  accept(messages,key,options={},managed={}){
  if(typeof key!=='string'||key.length<8||key.length>160)throw Error('A valid request key is required.');
  if(!Array.isArray(messages)||!messages.length||messages.length>100||messages.some(t=>typeof t!=='string'||(!t.trim()&&!options.attachments?.length)||t.length>30000))throw Error('Send 1–100 nonempty messages, each under 30,000 characters.');

@@ -142,3 +142,27 @@ body.chat-mode{overflow:hidden}.chat-mode .shell{height:100dvh;display:flex;flex
 .universe-delete-row,.universe-restore-row{display:flex;gap:14px;align-items:center;padding:16px 0;flex-wrap:wrap}.universe-delete-row{border-top:1px solid var(--line);margin-top:20px}.universe-delete-row small{max-width:390px;color:var(--text-muted);line-height:1.6}#universe-delete{color:#f3b2ae;border-color:#81515a}.universe-restore-row{justify-content:space-between}
 
 .branch-counts{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+
+/* A wide navigable sky: motion remains tied to real work and pointer actions. */
+.map-stage{background:radial-gradient(ellipse at 45% 46%,#10233a70,transparent 62%),#060e1b}
+.universe-star{fill:#a9c5e5;opacity:.32;pointer-events:none}
+.universe-navigator{position:absolute;right:18px;top:76px;width:142px;padding:9px 10px;border:1px solid #28445d80;border-radius:12px;background:#081422c9;backdrop-filter:blur(12px);color:#9eb7cd;z-index:2}
+.universe-navigator>span{font-size:11px;display:block;margin-bottom:5px}
+.universe-navigator svg{display:block;width:100%;height:94px;overflow:hidden}
+.universe-navigator [role=button]{cursor:pointer;outline:none}
+.universe-navigator [role=button]:hover circle:last-child,.universe-navigator [role=button]:focus-visible circle:last-child{fill:white;stroke:#5bdcca;stroke-width:8}
+#universe-spacing[aria-pressed=true]{border-color:#3e7887;color:#a9e8eb}
+#neural-map .department-aura{r:28;fill-opacity:.1}
+#neural-map .department-orbit{r:17;stroke-dasharray:2 5}
+#neural-map .department-label{font-size:16px;font-weight:600}
+#neural-map .task-node:hover .node-core,#neural-map .task-node:focus-visible .node-core{r:6}
+@media(max-width:700px){.universe-navigator{width:90px;right:10px;top:95px;padding:6px}.universe-navigator svg{height:62px}.universe-navigator>span{font-size:9px}.map-controls{flex-wrap:wrap}}
+.orbit-controls{position:absolute;left:20px;top:76px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:10px;border-radius:12px;background:#071422d9;border:1px solid #28445d80;z-index:2}
+.orbit-controls .subtle{margin:0;padding:6px 9px;font-size:12px}.orbit-controls label{display:flex;flex-direction:column;gap:5px;color:#9eb7cd;font-size:11px}.orbit-controls input{width:106px;accent-color:#70d7d9;height:14px;cursor:ew-resize}.orbit-controls #space-mode[aria-pressed=true]{color:#b8efee;border-color:#44848d}.space-orbit{fill:none;stroke:#547f9d;stroke-opacity:.17;stroke-dasharray:3 12;stroke-width:1.2;vector-effect:non-scaling-stroke}
+@media(max-width:700px){.orbit-controls{left:10px;top:94px;padding:6px}.orbit-controls input{width:78px}.orbit-controls label{font-size:10px}}
+.universe-immersive .neural-console{position:fixed;inset:10px;z-index:100;display:flex;flex-direction:column;background:#060e1b}.universe-immersive .console-body{flex:1;min-height:0}.universe-immersive .map-column{display:flex;min-height:0}.universe-immersive .map-stage{flex:1;height:auto;min-height:0}.universe-immersive .network-panel{max-height:calc(100dvh - 90px)}.universe-immersive .workflow-panel,.universe-immersive .agent-observatory{display:none}
+.universe-immersive .map-column{flex:1;flex-direction:column}.universe-immersive .console-body{overflow:hidden}
+/* Direct manipulation replaces the control panel. */
+.orbit-controls.direct-orbit{flex-direction:row;gap:6px;border:0;background:transparent;padding:0}.direct-orbit .subtle{background:#0b1929cc;backdrop-filter:blur(10px)}
+#neural-map{cursor:grab;touch-action:none}#neural-map.panning,#neural-map.panning *{cursor:grabbing!important}.panning .node-labels{opacity:.55}.panning .edge-hit{pointer-events:none}
+@media(max-width:700px){.map-count{bottom:104px;left:14px;right:14px;max-width:none;font-size:11px;line-height:1.5}.map-legend{bottom:51px;left:14px;right:14px;max-width:none;flex-wrap:wrap;gap:5px 10px;line-height:1.5}.zoom-controls{bottom:12px}}

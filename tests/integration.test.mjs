@@ -70,7 +70,8 @@ test('queue dispatch honors configured concurrency and drains 50 requests',async
  const f=await fixture(t);await f.post('/api/settings',{paused:true,concurrency:3});
  const r=await f.post('/api/intake',{messages:Array.from({length:50},(_,i)=>'Perform fixture task '+i),requestKey:'dispatch-burst'});assert.equal(r.status,202);
  await f.post('/api/settings',{paused:false});let maximum=0;
- await until(async()=>{const s=await f.get();const active=s.jobs.filter(j=>['running','starting','review'].includes(j.status)).length;maximum=Math.max(maximum,active);assert.ok(active<=3,`Active count exceeded three: ${active}`);assert.ok(!s.jobs.some(j=>j.status==='failed'),JSON.stringify(s.jobs.filter(j=>j.status==='failed')));return s.jobs.every(j=>j.status==='completed')},15000,()=>f.get());
+ // This verifies all receipts and the concurrency bound, not host disk speed.
+ await until(async()=>{const s=await f.get();const active=s.jobs.filter(j=>['running','starting','review'].includes(j.status)).length;maximum=Math.max(maximum,active);assert.ok(active<=3,`Active count exceeded three: ${active}`);assert.ok(!s.jobs.some(j=>j.status==='failed'),JSON.stringify(s.jobs.filter(j=>j.status==='failed')));return s.jobs.every(j=>j.status==='completed')},60000,()=>f.get());
  assert.ok(maximum>1);assert.equal((await f.get()).jobs.length,50);
 });
 

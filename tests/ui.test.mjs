@@ -8,10 +8,30 @@ const snapshot=overrides=>({connected:true,account:{status:'signedIn',email:'tre
 function app(state=snapshot(),handler){
  const dom=new JSDOM(html,{url:'http://127.0.0.1:4780',runScripts:'outside-only',pretendToBeVisual:true});const {window:w}=dom,calls=[],timers=[];let events;const nativeInterval=w.setInterval.bind(w);w.setInterval=(callback,ms)=>{timers.push({callback,ms});return nativeInterval(callback,ms)};
  w.EventSource=class{constructor(){events=this}};w.requestAnimationFrame=cb=>{cb();return 1};w.fetch=async(url,opts)=>{const body=typeof opts?.body==='string'?JSON.parse(opts.body):opts?.body||null;calls.push({url,body});const result=handler?await handler(url,body):url==='/api/state'?state:{ok:true};return {ok:true,json:async()=>result}};
- w.eval(script);events.onmessage({data:JSON.stringify(state)});
+ w.localStorage.setItem('ai-task-manager:universe-3d','false');w.eval(script);events.onmessage({data:JSON.stringify(state)});
  return {w,dom,calls,events,timers,$:s=>w.document.querySelector(s),update(s){state=s;events.onmessage({data:JSON.stringify(s)})},close(){dom.window.close()}};
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+test('3D orbit changes projection while preserving tasks and offers a flat overview',()=>{
+ const departments=['Strategy & Management','AI Systems','Engineering','Research'];
+ const threads=departments.flatMap((department,d)=>Array.from({length:12},(_,i)=>({id:`space-${d}-${i}`,title:'Validate customer demand',department,cwd:`/projects/${d}-${Math.floor(i/4)}`,recordedStatus:'completed'})));
+ const a=app(snapshot({departments,threads}));try{
+  const nodes=()=>[...a.w.document.querySelectorAll('.department-node')].map(n=>[Number(n.dataset.nodeX),Number(n.dataset.nodeY)]);
+  const flat=nodes();assert.ok(Math.max(...flat.map(p=>p[0]))-Math.min(...flat.map(p=>p[0]))>2000);
+  a.$('#space-mode').click();assert.equal(a.$('#space-mode').getAttribute('aria-pressed'),'true');assert.notDeepEqual(nodes(),flat);
+  const before=nodes(),svg=a.$('#neural-map');assert.equal(a.$('input[type=range]'),null);svg.onpointerdown({button:0,pointerId:1,clientX:300,clientY:300,target:svg,shiftKey:false});svg.onpointermove({pointerId:1,clientX:410,clientY:355});assert.match(a.$('.department-node').getAttribute('transform'),/translate/);svg.onpointerup({pointerId:1});assert.notDeepEqual(nodes(),before);
+  const pan=a.$('#neural-map'),camera=a.$('#map-transform').getAttribute('transform');pan.onpointerdown({button:0,pointerId:2,clientX:300,clientY:300,target:pan,shiftKey:true});pan.onpointermove({pointerId:2,clientX:350,clientY:330});pan.onpointerup({pointerId:2});assert.notEqual(a.$('#map-transform').getAttribute('transform'),camera);
+  assert.equal(a.w.document.querySelectorAll('.task-node').length,48);assert.equal(a.$('.task-node').dataset.task,'space-0-0');
+  a.$('#universe-fullscreen').click();assert.ok(a.w.document.body.classList.contains('universe-immersive'));
+  a.$('#space-mode').click();assert.deepEqual(nodes(),flat);assert.equal(a.$('#orbit-yaw'),null);
+ }finally{a.close()}
+});
+test('late failed polling cannot revoke newer streamed state',async()=>{
+ let reject;const a=app(snapshot(),()=>new Promise((_,no)=>reject=no));try{
+  a.events.onerror();assert.equal(a.$('#send').disabled,false);
+  a.update(snapshot());reject(Error('Old request timed out'));await tick();assert.equal(a.$('#send').disabled,false);
+ }finally{a.close()}
+});
 test('fresh account shows sign-in gate without starting OAuth automatically',async()=>{
  const a=app(snapshot({account:{status:'signedOut'}}));assert.equal(a.$('#send').disabled,true);assert.match(a.$('#setup').textContent,/Connect your Codex account/);assert.equal(a.calls.length,0);a.close();
 });
@@ -21,8 +41,8 @@ test('login link is explicit and never opens a tab automatically',async()=>{
 test('signed in identity is portable and missing CLI has an actionable setup gate',()=>{
  const a=app();assert.equal(a.$('#send').disabled,false);assert.equal(a.$('#account-name').textContent,'trey@example.com');assert.doesNotMatch(a.w.document.body.textContent,/Andrew Eller/);a.update(snapshot({connected:false,account:{status:'unavailable'},capabilities:{cliAvailable:false}}));assert.match(a.$('#setup').textContent,/Install the Codex engine/);assert.equal(a.$('#send').disabled,true);a.close();
 });
-test('lost event connection disables intake until fresh state arrives',()=>{
- const a=app();a.events.onerror();assert.equal(a.$('#send').disabled,true);assert.match(a.$('#setup').textContent,/Reconnecting/);a.update(snapshot());assert.equal(a.$('#send').disabled,false);a.close();
+test('failed stream and HTTP connection disable intake until fresh state arrives',async()=>{
+ const a=app(snapshot(),async()=>{throw Error('Offline')});a.events.onerror();await tick();assert.equal(a.$('#send').disabled,true);assert.match(a.$('#setup').textContent,/Reconnecting/);a.update(snapshot());assert.equal(a.$('#send').disabled,false);a.close();
 });
 test('graph and list apply the same department, project and search criteria',()=>{
  const a=app(snapshot({threads:[{id:'t1',title:'Fix reports',cwd:'/projects/shop',department:'Engineering',recordedStatus:'completed'},{id:'t2',title:'Shipping',cwd:'/projects/warehouse',department:'Operations',recordedStatus:'completed'}]}));const search=a.$('#graph-search');search.value='Shop';search.dispatchEvent(new a.w.Event('input'));assert.match(a.$('.map-count').textContent,/1 \/ 1/);a.$('#neural-list-view').click();assert.equal(a.w.document.querySelectorAll('tbody tr').length,1);assert.match(a.$('tbody').textContent,/Fix reports/);a.close();
@@ -117,7 +137,7 @@ test('queued followups in the same chat do not replace the currently executing m
 test('external active turns use their exact message and cannot borrow a prior prompt or observation time',()=>{
  const thread={id:'native',title:'Native chat',department:'Engineering',activity:{state:'running',source:'desktop',turnId:'new-turn',startedAt:Date.now()-350000,observedAt:Date.now()},currentRequest:{turnId:'new-turn',status:'available',text:'This is the new exact request.'}},jobs=[{id:'old',threadId:'native',turnId:'old-turn',prompt:'Old unrelated message',title:'Old request',status:'completed',createdAt:1}];const a=app(snapshot({desktop:{connected:true},threads:[thread],jobs}));a.$('.nav[data-view="working"]').click();assert.match(a.$('.work-prompt').textContent,/new exact request/);assert.ok(a.$('.work-long'));
  a.update(snapshot({desktop:{connected:true},jobs,threads:[{...thread,currentRequest:{turnId:'old-turn',status:'available',text:'Stale input'},activity:{...thread.activity,startedAt:null}}]}));assert.doesNotMatch(a.$('.work-prompt').textContent,/Stale input|Old unrelated/);assert.match(a.$('.work-time').textContent,/Start time unavailable/);assert.equal(a.$('.work-long'),null);
- a.events.onerror();assert.equal(a.$('.work-card'),null);assert.equal(a.$('#working-count').textContent,'0');a.close();
+ a.w.Date.now=()=>Date.now()+16000;a.events.onerror();assert.equal(a.$('.work-card'),null);assert.equal(a.$('#working-count').textContent,'0');a.close();
 });
 
 test('personal workspace name, custom colors and department routing reach real intake',async()=>{
@@ -163,7 +183,7 @@ test('history pagination keeps chronological messages and never promotes a stale
 });
 
 test('a stalled live stream recovers through fresh snapshots and failed polling disables sending',async()=>{
- let fail=false;const state=snapshot(),a=app(state,async()=>{if(fail)throw Error('Offline');return state});try{a.$('#prompt').value='Preserved draft';a.events.onerror();assert.equal(a.$('#send').disabled,true);const now=Date.now();a.w.Date.now=()=>now+7000;await a.timers.find(t=>t.ms===3000).callback();assert.equal(a.$('#send').disabled,false);assert.match(a.$('#connection-label').textContent,/polling/);fail=true;await a.timers.find(t=>t.ms===3000).callback();assert.equal(a.$('#send').disabled,true);assert.equal(a.$('#prompt').value,'Preserved draft');}finally{a.close()}
+ let fail=false;const state=snapshot(),a=app(state,async()=>{if(fail)throw Error('Offline');return state});try{a.$('#prompt').value='Preserved draft';a.events.onerror();await tick();assert.equal(a.$('#send').disabled,false);const now=Date.now();a.w.Date.now=()=>now+7000;await a.timers.find(t=>t.ms===3000).callback();assert.equal(a.$('#send').disabled,false);assert.match(a.$('#connection-label').textContent,/polling/);fail=true;await a.timers.find(t=>t.ms===3000).callback();assert.equal(a.$('#send').disabled,true);assert.equal(a.$('#prompt').value,'Preserved draft');}finally{a.close()}
 });
 
 test('approval dialog is explicit, survives live updates and saves only the chosen mode',async()=>{
@@ -180,7 +200,7 @@ test('approval dialog is explicit, survives live updates and saves only the chos
 test('navigation and map sidebar collapse persist through updates and have reachable restore buttons',()=>{
  const a=app();try{
  const before=a.$('#navigation-toggle').getAttribute('aria-expanded');a.$('#navigation-toggle').click();const collapsed=a.$('#navigation-toggle').getAttribute('aria-expanded');assert.notEqual(before,collapsed);a.update(snapshot());assert.equal(a.$('#navigation-toggle').getAttribute('aria-expanded'),collapsed);assert.notEqual(a.w.localStorage.getItem('ai-task-manager:navigation-collapsed'),null);
- a.$('#network-toggle').click();assert.equal(a.$('#network-sidebar').hidden,true);assert.ok(a.$('.console-body.sidebar-collapsed'));a.update(snapshot());assert.equal(a.$('#network-sidebar').hidden,true);a.$('#network-toggle').click();assert.equal(a.$('#network-sidebar').hidden,false);
+ assert.equal(a.$('#network-sidebar').hidden,true);a.$('#network-toggle').click();assert.equal(a.$('#network-sidebar').hidden,false);a.$('#network-toggle').click();assert.equal(a.$('#network-sidebar').hidden,true);assert.ok(a.$('.console-body.sidebar-collapsed'));a.update(snapshot());assert.equal(a.$('#network-sidebar').hidden,true);a.$('#network-toggle').click();assert.equal(a.$('#network-sidebar').hidden,false);
  }finally{a.close()}
 });
 
@@ -353,7 +373,7 @@ test('questions remain visible across universes and open the global answer inbox
  assert.match(a.$('#questions-open').textContent,/1 outside this universe/);assert.doesNotMatch(a.$('#content').textContent,/Approve the menu/);a.$('#questions-open').click();assert.equal(a.$('#universe-picker').value,'');assert.match(a.$('.question-inbox').textContent,/Approve the menu/);a.$('[data-answer="color"]').value='Green';a.$('[data-decision="accept"]').click();await tick();assert.deepEqual(a.calls.find(c=>c.url==='/api/approval').body.answers,{color:'Green'});a.close();
 });
 test('universe branch shows live agents even when other tasks need review',()=>{
- const a=app(snapshot({jobs:[{id:'live',title:'Build menu',department:'Engineering',status:'running',turnId:'active'},{id:'failed',title:'Review menu',department:'Engineering',status:'failed'}]}));try{const branch=a.$('.branch-status[data-focus-department="Engineering"]');assert.match(branch.textContent,/1 live/);assert.match(branch.textContent,/1 review/);a.events.onerror();assert.doesNotMatch(a.$('.branch-status[data-focus-department="Engineering"]').textContent,/1 live/);}finally{a.close();}
+ const a=app(snapshot({jobs:[{id:'live',title:'Build menu',department:'Engineering',status:'running',turnId:'active'},{id:'failed',title:'Review menu',department:'Engineering',status:'failed'}]}));try{const branch=a.$('.branch-status[data-focus-department="Engineering"]');assert.match(branch.textContent,/1 live/);assert.match(branch.textContent,/1 review/);a.w.Date.now=()=>Date.now()+16000;a.events.onerror();assert.doesNotMatch(a.$('.branch-status[data-focus-department="Engineering"]').textContent,/1 live/);}finally{a.close();}
 });
 
 
