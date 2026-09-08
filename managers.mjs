@@ -1,13 +1,13 @@
 import {universeScope} from './universes.mjs';
 import {chooseModel} from './core.mjs';
 const pending=new Set(['queued','routing','ready','starting','running','review']);
-export function managerDirectory(data){return [...Object.values(data.departmentManagers||{}),...(data.universes||[]).flatMap(u=>Object.values(u.departmentManagers||{}))].map(m=>{const job=data.jobs.find(j=>j.id===m.jobId);return {...m,universeName:(data.universes||[]).find(u=>u.id===m.universeId)?.name||null,threadId:job?.threadId||null,status:job?.status||'standby',canReview:universeScope(data,m.universeId,data.threadCatalog||[],data.projects||[]).jobs.some(j=>!j.managerForDepartment&&j.department===m.department&&j.status==='completed'),title:m.department+' manager',model:job?.model||null,lastResult:job?.response||null};});}
+export function managerDirectory(data){return [...Object.values(data.departmentManagers||{}),...(data.universes||[]).filter(u=>!u.deletedAt).flatMap(u=>Object.values(u.departmentManagers||{}))].map(m=>{const job=data.jobs.find(j=>j.id===m.jobId);return {...m,universeName:(data.universes||[]).find(u=>u.id===m.universeId)?.name||null,threadId:job?.threadId||null,status:job?.status||'standby',canReview:universeScope(data,m.universeId,data.threadCatalog||[],data.projects||[]).jobs.some(j=>!j.managerForDepartment&&j.department===m.department&&j.status==='completed'),title:m.department+' manager',model:job?.model||null,lastResult:job?.response||null};});}
 export function queueManagerReviews(store,models,now=Date.now(),{department,universeId,force=false}={}){
  const data=store.data;if((!data.settings.autoManagers&&!force)||!data.organizationEnabledAt)return [];
  const model=chooseModel('quick',models);if(!model)return [];
- const namedJobIds=new Set((data.universes||[]).flatMap(u=>universeScope(data,u.id,data.threadCatalog||[],data.projects||[]).jobs.map(j=>j.id)));
+ const namedJobIds=new Set((data.universes||[]).filter(u=>!u.deletedAt).flatMap(u=>universeScope(data,u.id,data.threadCatalog||[],data.projects||[]).jobs.map(j=>j.id)));
  const created=[];
- for(const manager of [...Object.values(data.departmentManagers||{}),...(data.universes||[]).flatMap(u=>Object.values(u.departmentManagers||{}))]){
+ for(const manager of [...Object.values(data.departmentManagers||{}),...(data.universes||[]).filter(u=>!u.deletedAt).flatMap(u=>Object.values(u.departmentManagers||{}))]){
   if(department&&manager.department!==department||universeId!==undefined&&(manager.universeId||null)!==universeId)continue;
   const scoped=universeScope(data,manager.universeId,data.threadCatalog||[],data.projects||[]);
   const candidates=scoped.jobs.filter(j=>manager.universeId||!namedJobIds.has(j.id));

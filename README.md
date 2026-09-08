@@ -89,3 +89,11 @@ Protocol reference: [Codex app-server documentation](https://developers.openai.c
 - Request inbox shows unfinished requests; completed work remains in history. Rewster voice conversations and internal reviews are hidden from Completions.
 - Gentle universe animation is ambient; active pulses and live counts remain based on observed work.
 - Install through Workspace → Check for updates. The shared signed update feed is used by every Mac; paired phones use their Mac's current dashboard.
+
+## Version 0.11.1
+
+Automatic universe discovery waits for a specific subject. A generic AI business name and a revenue target do not import other businesses. Previous automatic matches are rechecked under the stricter policy; explicitly linked work stays in place. Old automatic manager reviews do not keep irrelevant departments visible.
+
+Use **Edit universe → Delete universe** to remove a world from the picker. Chats, files and active requests stay intact. Restore deleted worlds from **＋ Universe → Deleted universes**. Deleting All Codex is not supported.
+
+Questions in other universes stay visible through a workspace-wide reply banner. Branch status shows live work and pending reviews together. New universe setup uses business-neutral examples, and internal manager reviews stay out of discovery and the completion feed.

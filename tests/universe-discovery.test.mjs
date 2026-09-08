@@ -22,7 +22,7 @@ test('ungrounded, unknown, duplicate and incomplete matches are rejected, and am
  const f=setup(input=>({decisions:decisions(input).decisions.map(r=>({...r,confidence:.6}))}));await f.worker.tick();assert.deepEqual(f.u.automaticMatches,{});
 });
 test('a model failure leaves current membership intact and retries with backoff',async()=>{
- const f=setup(()=>{throw Error('Temporarily unavailable')});f.u.automaticMatches={nayax:{reason:'Previously confirmed'}};await f.worker.tick();assert.equal(f.u.discovery.status,'retrying');assert.ok(f.u.automaticMatches.nayax);await f.worker.tick();assert.equal(f.calls,1);f.advance();await f.worker.tick();assert.equal(f.calls,2);
+ const f=setup(()=>{throw Error('Temporarily unavailable')});f.u.discoveryPolicy=2;f.u.automaticMatches={nayax:{reason:'Previously confirmed'}};await f.worker.tick();assert.equal(f.u.discovery.status,'retrying');assert.ok(f.u.automaticMatches.nayax);await f.worker.tick();assert.equal(f.calls,1);f.advance();await f.worker.tick();assert.equal(f.calls,2);
 });
 test('structured discovery schema requires a decision for every exact task ID',async()=>{
  const {discoveryOutputSchema,normalizeDiscoveryOutput}=await import('../universe-discovery.mjs');const tasks=[{id:'first',title:'Vending stock',excerpt:''},{id:'second',title:'Wedding photos',excerpt:''}];const schema=discoveryOutputSchema(tasks);assert.deepEqual(schema.properties.decisions.required,['first','second']);assert.equal(schema.properties.decisions.additionalProperties,false);
@@ -32,4 +32,15 @@ test('structured discovery schema requires a decision for every exact task ID',a
 test('shared owner biographies and wrapper payloads do not become business evidence',async()=>{
  const {discoveryCandidates}=await import('../universe-discovery.mjs');const data={jobs:[]},u=saveUniverse(data,{name:'Vending Business'});
  const rows=discoveryCandidates(data,u,[{id:'setup',title:'Background context supplied by the app: Andrew operates vending',preview:'Background context supplied by the app: All his assistants know about vending',lastActivity:'Playing your music now.'}]);assert.equal(rows[0].title,'');assert.equal(rows[0].excerpt,'Playing your music now.');
+});
+
+test('generic AI business and revenue targets do not import unrelated history or call a model',async()=>{
+ const f=setup(decisions);f.u.name='New Ai powered Business';f.u.description='AI-driven business making $30,000-$50,000 Per month MRR.';f.u.automaticMatches={nayax:{reason:'Old overly broad guess'}};await f.worker.tick();assert.equal(f.calls,0);assert.equal(f.u.discovery.status,'needs-context');assert.deepEqual(f.u.automaticMatches,{});assert.equal(universeScope(f.data,f.u.id,f.threads()).threads.length,0);assert.equal(universeScope(f.data,null,f.threads()).threads.length,2);
+ f.data.jobs.push({id:'new',universeId:f.u.id,title:'Dental reception',prompt:'Build appointment booking for dental clinics'});f.advance();await f.worker.tick();assert.equal(f.calls,1);
+});
+test('deleting a universe while a classifier is running discards its late match',async()=>{let resolve;const f=setup(input=>new Promise(r=>resolve=()=>r(decisions(input))));const pending=f.worker.tick();f.u.deletedAt=Date.now();resolve();await pending;assert.deepEqual(f.u.automaticMatches,{});});
+test('old automatic review tasks cannot keep an unrelated department alive',()=>{const f=setup(decisions);f.data.jobs.push({id:'review',universeId:f.u.id,threadId:'manager',managerForDepartment:'Growth',department:'Growth',status:'completed'});f.setThreads([...f.threads(),{id:'manager',title:'Growth review',department:'Growth'}]);const scope=universeScope(f.data,f.u.id,f.threads());assert.equal(scope.threads.length,0);assert.equal(scope.jobs.length,0);assert.equal(f.data.jobs.length,1);});
+
+test('internal reviews cannot be imported as unrelated business work',async()=>{
+ const {discoveryCandidates}=await import('../universe-discovery.mjs');const f=setup(decisions);f.data.jobs.push({id:'internal',threadId:'review',managerForDepartment:'Growth'});f.setThreads([...f.threads(),{id:'review',title:'Review new AI business strategy'}]);assert.deepEqual(discoveryCandidates(f.data,f.u,f.threads()).map(t=>t.id),['nayax','design']);
 });

@@ -138,3 +138,7 @@ body.chat-mode{overflow:hidden}.chat-mode .shell{height:100dvh;display:flex;flex
 .answer-field{border:0;padding:0;margin:16px 0;min-width:0}.answer-field legend{font-size:15px;font-weight:600;margin-bottom:10px}.answer-field input{width:100%;margin-top:12px;box-sizing:border-box}.attention-mode #metrics,.attention-mode .page-heading .date{display:none}.attention-mode .page-heading{margin-bottom:16px}.attention-mode #activity-connection{padding:10px 14px;margin-bottom:18px}.attention-mode .composer{position:relative;bottom:auto;margin-top:24px}.universe-expanded #content{flex-direction:column}.universe-expanded .question-banner{flex-shrink:0}.universe-expanded .neural-console{flex:1}
 
 .site-links{display:flex;flex-wrap:wrap;gap:10px}.site-links a{padding:10px 14px;border:1px solid var(--line);border-radius:6px;color:var(--accent)}
+
+.universe-delete-row,.universe-restore-row{display:flex;gap:14px;align-items:center;padding:16px 0;flex-wrap:wrap}.universe-delete-row{border-top:1px solid var(--line);margin-top:20px}.universe-delete-row small{max-width:390px;color:var(--text-muted);line-height:1.6}#universe-delete{color:#f3b2ae;border-color:#81515a}.universe-restore-row{justify-content:space-between}
+
+.branch-counts{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}

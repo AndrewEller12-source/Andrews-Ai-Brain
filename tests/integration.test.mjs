@@ -16,7 +16,7 @@ async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http
  const stop=async()=>{if(child.exitCode!==null||child.signalCode)return;child.kill('SIGTERM');await Promise.race([new Promise(r=>child.once('exit',r)),delay(2000).then(()=>child.kill('SIGKILL'))])};t.after(stop);
  const get=async()=>{const r=await fetch(base+'/api/state');assert.equal(r.status,200);return r.json()};
  const post=async(url,data,headers={})=>{const res=await fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json','X-Rewster-Request':'1',Origin:base,...headers},body:JSON.stringify(data)});return {status:res.status,body:await res.json()}};
- await until(async()=>{try{return (await get()).connected}catch{return false}},5000,()=>output);
+ await until(async()=>{try{const s=await get();return s.connected&&s.lastSync&&s.account.status===(signedOut?'signedOut':'signedIn')}catch{return false}},20000,()=>output);
  await post('/api/settings',{autoManagers});
  return {dir,base,child,stop,get,post,log,output:()=>output};
 }
@@ -210,9 +210,9 @@ test('update handoff refuses active work and shuts down only after the queue is 
 test('history discovers archived chats and preserves the catalog during restart',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'all-chat-history-')),catalogFile=path.join(dir,'catalog.json');
  fs.writeFileSync(catalogFile,JSON.stringify([{id:'active-chat',name:'Active chat',updatedAt:1},{id:'archived-chat',name:'Archived chat',archived:true,updatedAt:2}]));
- const f=await fixture(t,{dir,catalogFile});let s=await f.get();assert.deepEqual(s.threads.map(t=>t.id).sort(),['active-chat','archived-chat']);assert.equal(s.threads.find(t=>t.id==='archived-chat').archived,true);
+ const f=await fixture(t,{dir,catalogFile});let s=await until(async()=>{const snapshot=await f.get();return snapshot.lastSync&&snapshot});assert.deepEqual(s.threads.map(t=>t.id).sort(),['active-chat','archived-chat']);assert.equal(s.threads.find(t=>t.id==='archived-chat').archived,true);
  const rpc=fs.readFileSync(f.log,'utf8').split('\n').filter(Boolean).map(l=>JSON.parse(l)).filter(m=>m.method==='thread/list');assert.ok(rpc.some(m=>m.params.archived===true));assert.ok(rpc.every(m=>Array.isArray(m.params.modelProviders)&&m.params.modelProviders.length===0));
- await f.stop();fs.writeFileSync(catalogFile,'[]');const next=await fixture(t,{dir,catalogFile});s=await next.get();assert.ok(s.threads.some(t=>t.id==='active-chat'&&t.catalogMissing));assert.ok(s.threads.some(t=>t.id==='archived-chat'));
+ await f.stop();fs.writeFileSync(catalogFile,'[]');const next=await fixture(t,{dir,catalogFile});s=await until(async()=>{const snapshot=await next.get();return snapshot.lastSync&&snapshot});assert.ok(s.threads.some(t=>t.id==='active-chat'&&t.catalogMissing));assert.ok(s.threads.some(t=>t.id==='archived-chat'));
 });
 
 
@@ -251,4 +251,9 @@ test('creating a universe automatically discovers old work and later new native 
  u=await until(async()=>{const s=await f.get();return s.universes.find(u=>u.automaticMatches?.['new-route'])},15000,()=>f.get());assert.equal(u.threadIds.length,2);
  await f.post('/api/universes',{id:u.id,name:u.name,autoDiscover:true,excludedThreadIds:['old-payment']});u=(await f.get()).universes[0];assert.equal(u.threadIds.includes('old-payment'),false);assert.equal(u.threadIds.includes('new-route'),true);
  assert.equal((await f.get()).jobs.length,0);
+});
+
+test('deleted universes remain recoverable and do not interrupt their existing queue',async t=>{
+ const f=await fixture(t);await f.post('/api/settings',{paused:true});const u=(await f.post('/api/universes',{name:'AI business',autoDiscover:false})).body;
+ const job=(await f.post('/api/intake',{messages:['Draft a clinic receptionist offer'],requestKey:'delete-world-queue',options:{universeId:u.id}})).body.ids[0];assert.equal((await f.post('/api/universes/delete',{id:u.id})).status,200);let s=await f.get();assert.equal(s.universes.length,0);assert.equal(s.deletedUniverses[0].id,u.id);assert.equal(s.jobs.find(j=>j.id===job).status,'queued');assert.equal((await f.post('/api/intake',{messages:['Do not enter deleted world'],requestKey:'deleted-world-reject',options:{universeId:u.id}})).status,400);await f.post('/api/settings',{paused:false});await until(async()=>(await f.get()).jobs.find(j=>j.id===job)?.status==='completed');assert.equal((await f.post('/api/universes/delete',{id:u.id,restore:true})).status,200);s=await f.get();assert.ok(s.universes[0].jobIds.includes(job));
 });

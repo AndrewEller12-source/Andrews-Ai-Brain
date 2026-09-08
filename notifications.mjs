@@ -33,6 +33,6 @@ export function markNotificationsRead(data,ids){
 export function visibleNotifications(data,threads=[]){
  const voice=t=>/(?:^|\/)Rewster Local\/agent-workspace(?:\/|$)/i.test(String(t?.cwd||t?.workspace||'').replaceAll('\\','/'));
  const hidden=new Set(threads.filter(voice).map(t=>t.id));
- for(const j of data.jobs||[])if(j.rewsterReview||voice(j))hidden.add(j.threadId||j.id);
- return (data.notifications||[]).filter(n=>!hidden.has(n.threadId)&&!(data.jobs||[]).some(j=>j.id===n.jobId&&(j.rewsterReview||voice(j))));
+ for(const j of data.jobs||[])if(j.rewsterReview||j.managerForDepartment||voice(j))hidden.add(j.threadId||j.id);
+ return (data.notifications||[]).filter(n=>!hidden.has(n.threadId)&&!(data.jobs||[]).some(j=>j.id===n.jobId&&(j.rewsterReview||j.managerForDepartment||voice(j))));
 }

@@ -30,3 +30,7 @@ test('same-named managers review only their own universe and keep separate real 
  assert.match(jobs.find(j=>j.universeId===a.id).prompt,/Vending/);assert.doesNotMatch(jobs.find(j=>j.universeId===a.id).prompt,/Studio/);
  }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
+
+test('delete and restore preserve chats, running work and manual membership',async()=>{
+ const {deleteUniverse,universeDirectory,acceptUniverse}=await import('../universes.mjs');const data={jobs:[],projects:[],customDepartments:[]},threads=[{id:'chat',department:'Engineering'}];const u=saveUniverse(data,{name:'Separate business',threadIds:['chat']},[],threads);data.jobs.push({id:'running',threadId:'chat',universeId:u.id,status:'running'});data.threadCatalog=threads;deleteUniverse(data,u.id);assert.equal(universeDirectory(data,threads,[]).length,0);assert.equal(data.jobs[0].status,'running');assert.equal(universeScope(data,null,threads).threads.length,1);assert.equal(universeScope(data,u.id,threads).threads.length,1,'existing workers retain their routing scope');assert.equal(acceptUniverse(data,{threadId:'chat'}).id,null);assert.throws(()=>acceptUniverse(data,{universeId:u.id}),/deleted/);deleteUniverse(data,u.id,{restore:true});assert.equal(universeDirectory(data,threads,[]).length,1);assert.deepEqual(u.threadIds,['chat']);assert.throws(()=>deleteUniverse(data,''),/All Codex/);
+});
