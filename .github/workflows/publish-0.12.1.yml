@@ -1,0 +1,53 @@
+name: Publish verified 0.12.1
+on:
+  push:
+    paths: ['.github/workflows/publish-0.12.1.yml']
+permissions:
+  contents: write
+concurrency:
+  group: publish-0.12.1
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify signed release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.12.1.zip Ai-Task-Manager-Source-0.12.1.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://enlarge-sleeping-rules-gave.trycloudflare.com/$f" -o "$f"
+          done
+          echo '34c55b35ae9c1837d25eb6c1bfa9bd19adb719557bedd03223f9105dd2023340  Ai-Task-Manager-Mac-0.12.1.zip' | sha256sum -c -
+          echo '075f6bd0e4c98efbab3fa733eaeb3b59548f044248036f12d77804c717d16bf1  Ai-Task-Manager-Source-0.12.1.zip' | sha256sum -c -
+          echo 'd6e685c4c55c6436744e8dde8f0462552d51a17ecaa1f300b2e9d6c2d3073f65  appcast.xml' | sha256sum -c -
+          echo 'd59d405e131b8e54b38a26b5b06e22f4d1476df6576f6d7633ab42be0c261f4b  SHA256SUMS.txt' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          set -euo pipefail
+          unzip -q assets/Ai-Task-Manager-Source-0.12.1.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Publish saved task pause, resume and restart recovery in 0.12.1'
+          git push
+      - name: Upload draft and publish complete update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(git -C checkout rev-parse HEAD)
+          gh release create v0.12.1 assets/* --target "$target" --draft --title 'Ai Task Manager 0.12.1' --notes 'Pause task and Resume saved work are available in chats, request details and Working now. Pauses become saved only after a confirmed interrupted turn; queued requests can also be paused without dispatch. Resume continues the same conversation and workspace in one new turn, preserving approval settings and checking previous results before repeating actions. Duplicate resume clicks share a durable continuation receipt. Startup recovery checks exact saved outcomes: completed stays completed, interrupted becomes resumable, and unknown or open turns remain held for review. Closing or quitting the Mac window continues to leave detached workers running while the Mac is awake. External jobs already launched may continue when an agent is paused. Verified with 41 integration checks, 68 UI checks, core and upgrade regressions, an isolated browser pause/resume flow, clean recipient startup, all 49 packaged runtime hashes, code signing and Sparkle signature verification. The native Swift shell is unchanged and reused from the verified previous package. Active work remains protected during installation.'
+          gh release edit v0.12.1 --draft=false --latest
+
