@@ -23,3 +23,7 @@ test('command log endpoints are not outputs while explicit file changes remain d
  assert.deepEqual(command.outputs,[]);
  const change=normalizeConversationItem({item:{type:'fileChange',changes:[{path:file}]}},media,context);assert.equal(change.outputs[0].filename,'result.txt');assert.ok(change.outputs[0].downloadUrl);
 });
+
+test('a preview URL in inline code is discoverable, without treating command code as a preview',()=>{
+ assert.deepEqual(conversationLinks('Your app: `http://127.0.0.1:3000/`'),[{name:'http://127.0.0.1:3000/',target:'http://127.0.0.1:3000/'}]);assert.deepEqual(conversationLinks('Run `curl http://127.0.0.1:3000/`'),[]);
+});

@@ -69,6 +69,14 @@ struct BrainWebView {
             if target.scheme == url.scheme && target.host == url.host && target.port == url.port {
                 decisionHandler(navigationAction.shouldPerformDownload ? .download : .allow); return
             }
+            // Task previews stay in their sandboxed subframe. They never replace
+            // the workspace or receive access to its native message handler.
+            let localPreview = ["localhost", "127.0.0.1", "::1", "[::1]"].contains(target.host ?? "")
+            if pairing == nil, navigationAction.targetFrame?.isMainFrame == false,
+               target.user == nil, target.password == nil,
+               target.scheme == "https" || (target.scheme == "http" && localPreview) {
+                decisionHandler(.allow); return
+            }
             // Other websites open in the system browser and never receive the pairing cookie.
             if navigationAction.navigationType == .linkActivated || navigationAction.targetFrame == nil {
                 openExternal(target)
@@ -78,7 +86,7 @@ struct BrainWebView {
         #if os(macOS)
         func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
             let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.png, .jpeg, .webP, .gif]
+            panel.allowedContentTypes = [.png, .jpeg, .webP, .gif, .heic, .heif]
             panel.allowsMultipleSelection = parameters.allowsMultipleSelection
             panel.canChooseDirectories = false
             panel.canChooseFiles = true
@@ -134,6 +142,9 @@ struct BrainWebView {
             return nil
         }
         func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+            // A stopped preview server or an app's own error page is not a
+            // disconnected Task Manager workspace.
+            if !navigationResponse.isForMainFrame { decisionHandler(.allow); return }
             if let response = navigationResponse.response as? HTTPURLResponse, response.statusCode >= 400 {
                 blocked = true
                 onError(response.statusCode == 401 && pairing != nil ? "This pairing was revoked or expired. Forget this Mac in Connection settings and paste its new pairing code." : "The workspace returned an error. Try Reload, or check that your Mac is running.")

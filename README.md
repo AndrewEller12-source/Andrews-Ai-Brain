@@ -106,3 +106,18 @@ On macOS, closing the window or quitting Ai Task Manager leaves the detached bac
 Use **Pause task** in a chat, request details, or Working now to stop an agent turn and retain its conversation and workspace. The request becomes **Paused · saved** only after Codex confirms the interruption. Find it under **Working now → Paused · saved** or **Needs attention**, then choose **Resume saved work**. This continues the same conversation with a new turn, checking previous results before repeating actions. Pausing an agent does not undo changes or guarantee that an external job it already launched has stopped.
 
 After a runtime restart, the app checks saved turn receipts: confirmed completions remain completed, confirmed interruptions become resumable, and an open or missing receipt stays **Outcome unconfirmed**. Use **Check outcome** for unresolved work. Recovery never automatically replays a possibly completed action. Paused requests stay saved through application updates.
+
+### Agent names and app previews
+
+Each task keeps a unique agent name across restarts. Find an agent by name in the
+universe search or history; click the name above its chat to rename it. Names are
+also included in the Rewster agent directory. The authenticated message endpoint
+accepts `agentName` in place of `threadId` and resolves it to the existing task.
+Names never replace the task's title or underlying identity.
+
+Use **Show app** in a chat to view a local preview shared by the agent, or enter
+its preview URL. **Hide**, **Expand**, **Reload**, and **Open** control the viewer.
+Chat updates do not reload the embedded app. New web-building tasks are instructed
+to start and share a local preview while working. Its server must remain running;
+sites that block embedding can be opened separately. Local previews are not
+published deployments.

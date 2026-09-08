@@ -409,3 +409,19 @@ test('larger converted JPEGs cannot silently exceed the combined attachment limi
  assert.equal(a.w.document.querySelectorAll('#attachment-tray [data-photo]').length,3);assert.match(a.$('.upload-failed').textContent,/40 MB combined/);assert.equal(a.$('#send').disabled,true);
  }finally{a.close()}
 });
+
+test('loaded history owns steering order and an old delivered receipt never becomes the latest message',async()=>{
+ const state=snapshot({threads:[{...chatThread,agentName:'Athena'}],steers:[{id:'old',threadId:'design',turnId:'old-turn',status:'delivered',prompt:'Old steering instruction'}]});
+ const messages=[{id:'q',turnId:'new',role:'user',text:'Current request'},{id:'first',turnId:'new',role:'assistant',text:'First response'},{id:'steer',turnId:'new',role:'user',text:'Current correction'},{id:'last',turnId:'new',role:'assistant',text:'Latest response'}];
+ const a=app(state,async()=>({items:messages}));try{a.w.openConversation('design');await tick();assert.deepEqual([...a.w.document.querySelectorAll('[data-message-id]')].map(n=>n.dataset.messageId),['q','first','steer','last']);assert.doesNotMatch(a.$('.chat-messages').textContent,/Old steering instruction/);}finally{a.close()}
+});
+test('a shared live animation clock advances through streamed refreshes and stops for completed agents',()=>{
+ const state=snapshot({threads:[{...chatThread,activity:{state:'running',source:'dashboard',turnId:'live'},agentName:'Athena'}]});const a=app(state);try{a.w.Date.now=()=>100000;a.update(state);const phase=a.$('#neural-map').style.getPropertyValue('--live-phase');assert.ok(a.$('.node-pulse'));a.w.Date.now=()=>100900;a.update(state);assert.notEqual(a.$('#neural-map').style.getPropertyValue('--live-phase'),phase);a.update(snapshot({threads:[{...chatThread,activity:{state:'completed',source:'dashboard',turnId:'live'}}]}));assert.equal(a.$('.node-pulse'),null);}finally{a.close()}
+});
+test('app preview survives streaming updates, hides without losing its frame, and stays scoped to its chat',async()=>{
+ const state=snapshot({threads:[{...chatThread,agentName:'Athena'},{...chatThread,id:'second'}]});const a=app(state,async()=>({items:[{id:'app',turnId:'t',role:'assistant',text:'Preview ready',outputs:[{id:'p',kind:'preview',role:'assistant',url:'http://127.0.0.1:4100/',name:'Preview'}]}]}));
+ try{a.w.openConversation('design');await tick();a.$('#preview-toggle').click();const frame=a.$('#preview-stage iframe');assert.ok(frame);assert.equal(frame.src,'http://127.0.0.1:4100/');a.update(state);assert.equal(a.$('#preview-stage iframe'),frame);a.$('#preview-hide').click();assert.equal(a.$('#app-preview').hidden,true);a.$('#preview-toggle').click();assert.equal(a.$('#preview-stage iframe'),frame);a.w.openConversation('second');await tick();assert.equal(a.$('#app-preview').hidden,true);a.w.openConversation('design');await tick();assert.equal(a.$('#app-preview').hidden,false);assert.equal(a.w.previewUrl('http://127.0.0.1:4780/api/state'),null);assert.equal(a.w.previewUrl('http://localhost:4780/'),null);a.w.showAppPreview('http://127.0.0.1:4200/');assert.equal(a.$('#preview-stage iframe').src,'http://127.0.0.1:4200/');assert.equal(a.w.previewUrl('javascript:alert(1)'),null);assert.equal(a.w.previewUrl('https://user:pass@example.com/'),null);}finally{a.close()}
+});
+test('names appear on agents and can be found without knowing the task title',async()=>{
+ const a=app(snapshot({threads:[{...chatThread,agentName:'Athena'}]}));try{a.$('#graph-search').value='athena';a.$('#graph-search').dispatchEvent(new a.w.Event('input'));assert.equal(a.w.document.querySelectorAll('.task-node').length,1);assert.match(a.$('.task-node').textContent,/Athena/);a.w.openConversation('design');await tick();assert.match(a.$('#agent-name').textContent,/Athena/);}finally{a.close()}
+});

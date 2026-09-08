@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 
 const blocked = filename => /(?:^|\/)(?:\.ssh|\.aws|\.gnupg)(?:\/|$)|(?:^|\/)\.env(?:\.|$)|(?:^|\/)(?:auth|credentials)\.json$|\.(?:pem|key)$/i.test(filename);
 export function conversationLinks(text) {
- const clean=String(text||'').replace(/```[\s\S]*?```/g,'').replace(/`[^`\n]*`/g,'');
+ const clean=String(text||'').replace(/```[\s\S]*?```/g,'').replace(/`(https?:\/\/[^`\s]+)`/g,'$1').replace(/`[^`\n]*`/g,'');
  const result=[];
  for(const match of clean.matchAll(/(?<!!)\[([^\]\n]+)\]\(\s*(?:<([^>\n]+)>|([^\s]+(?:\s+"[^"]*")?))\s*\)/g))result.push({name:match[1],target:(match[2]||match[3]).replace(/\s+"[^"]*"$/,'')});
  for(const match of clean.matchAll(/https?:\/\/[^\s<>"\])]+/g))if(!result.some(r=>r.target===match[0]))result.push({name:match[0],target:match[0]});

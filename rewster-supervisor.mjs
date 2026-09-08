@@ -29,7 +29,7 @@ export function supervisorSnapshot(snapshot) {
   const jobs=snapshot.jobs||[],threads=snapshot.threads||[];
   return {ok:true,observedAt:Date.now(),connected:snapshot.connected,desktop:snapshot.desktop,capabilities:{activeTurnSteering:true},
     policy:snapshot.settings?.rewsterSupervisor||{enabled:false,autoCorrect:false},standards,
-    agents:threads.filter(t=>!t.archived).map(t=>({id:t.id,title:t.title,department:t.department,
+    agents:threads.filter(t=>!t.archived).map(t=>({id:t.id,agentName:t.agentName,title:t.title,department:t.department,
       activity:t.activity,currentRequest:t.currentRequest,latestJob:jobs.findLast(j=>j.threadId===t.id)?.id||null,
       latestActivity:t.turnId===t.activity?.turnId&&t.activity?.startedAt&&Date.parse(t.activityAt)>=t.activity.startedAt?{text:t.lastActivity,at:Date.parse(t.activityAt),source:'recorded_current_turn'}:null})),
     jobs:jobs.slice(-100).map(j=>({id:j.id,threadId:j.threadId,turnId:j.turnId,title:j.title,status:j.status,

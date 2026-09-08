@@ -325,3 +325,12 @@ test('HEIC upload serves a JPEG and resumes its registered attachment after rest
  const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse),turn=calls.find(c=>c.method==='turn/start'&&c.params.threadId===job.threadId);
  const photo=turn.params.input.find(i=>i.type==='localImage');assert.ok(photo.path.endsWith('.jpg'));assert.deepEqual(fs.readFileSync(photo.path),jpeg);
 });
+
+test('agent names persist after restart and named coordination targets the original conversation',async t=>{
+ const f=await fixture(t);const result=await intake(f,'Prepare research','named-original');const job=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===result.body.ids[0]);return j?.status==='completed'&&j});
+ await until(async()=>(await f.get()).threads.find(t=>t.id===job.threadId)?.agentName);assert.equal((await f.post('/api/agents/name',{threadId:job.threadId,name:'Athena'})).status,200);
+ const catalogFile=path.join(f.dir,'named-catalog.json');fs.writeFileSync(catalogFile,JSON.stringify([{id:job.threadId,name:'Prepare research',cwd:job.cwd,path:'',updatedAt:1}]));await f.stop();const next=await fixture(t,{dir:f.dir,catalogFile});assert.equal((await next.get()).threads.find(t=>t.id===job.threadId).agentName,'Athena');
+ const token=fs.readFileSync(path.join(f.dir,'rewster-integration.token'),'utf8').trim(),headers={Authorization:'Bearer '+token};const status=await(await fetch(next.base+'/api/rewster/status',{headers})).json();assert.equal(status.agents.find(a=>a.id===job.threadId).agentName,'Athena');
+ const message=await next.post('/api/rewster/message',{agentName:'Athena',message:'Finish the research summary',reason:'Owner follow-up',requestKey:'named-follow-up'},headers);assert.equal(message.status,202,JSON.stringify(message.body));assert.equal(message.body.threadId,job.threadId);
+ const policy=(await fetch(next.base+'/')).headers.get('content-security-policy');assert.match(policy,/frame-src http:\/\/127.0.0.1:\*/);
+});
