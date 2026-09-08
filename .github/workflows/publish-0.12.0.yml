@@ -1,0 +1,53 @@
+name: Publish verified 0.12.0
+on:
+  push:
+    paths: ['.github/workflows/publish-0.12.0.yml']
+permissions:
+  contents: write
+concurrency:
+  group: publish-0.12.0
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify signed release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.12.0.zip Ai-Task-Manager-Source-0.12.0.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://lat-birmingham-prevent-gonna.trycloudflare.com/$f" -o "$f"
+          done
+          echo '64282bcd1cc9fec985e467c4be9ed84d2783c3ddb1d11bacee520230f16b7c45  Ai-Task-Manager-Mac-0.12.0.zip' | sha256sum -c -
+          echo '31051f20dafef3231f6f18014804da62f5e0ee9dd720e1f0e93c8225e5ae878c  Ai-Task-Manager-Source-0.12.0.zip' | sha256sum -c -
+          echo '4e9cf8174465b581ef9e38fbbd1f36a22826a39ca89914d1a34698051353c656  appcast.xml' | sha256sum -c -
+          echo 'b1acefe1abb79c266cfec5e4d30795a18b40a7413782b37b7e83b3f44509bdfe  SHA256SUMS.txt' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          set -euo pipefail
+          unzip -q assets/Ai-Task-Manager-Source-0.12.0.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Publish direct 3D universe navigation and connection stability in 0.12.0'
+          git push
+      - name: Upload draft and publish complete update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(git -C checkout rev-parse HEAD)
+          gh release create v0.12.0 assets/* --target "$target" --draft --title 'Ai Task Manager 0.12.0' --notes 'Grab the universe itself to orbit in 3D, Shift-drag to pan, and scroll to zoom. No sliders. Wider, irregular branches, depth projection, full screen, a navigator and a flat-map option retain actual task identities and truthful live status. Fixes large live-stream updates disconnecting slow readers; snapshots omit completed tool transcripts, reducing a measured 22 MB workspace snapshot by 87 percent while full stored conversations remain available on demand. Live updates coalesce and send the latest state after backpressure; HTTP fallback remains usable during stream reconnects. Progress persistence is batched while intake, approvals, dispatch receipts and terminal state remain immediately durable. Verified with core and streaming regressions, integration checks including 50-request durability and concurrency, direct mouse-drag browser verification, clean recipient startup, package manifest checks, code signing and Sparkle signature verification. The busy-host queue test passed with its time allowance increased; it still verifies every completion and the concurrency limit. Native Swift shell is unchanged and reused from the verified previous package. Installation waits for unfinished dashboard requests; no active agents are force-quit.'
+          gh release edit v0.12.0 --draft=false --latest
+
