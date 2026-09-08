@@ -52,7 +52,7 @@ struct MacDashboardView: View {
         .onReceive(NotificationCenter.default.publisher(for: .init("WorkspaceRefresh"))) { _ in revision = UUID(); webError = nil }
         .onReceive(NotificationCenter.default.publisher(for: .init("WorkspacePhone"))) { _ in showPhone = true }
         .safeAreaInset(edge: .bottom) {
-            if let updateStatus = runtime.updateStatus { HStack { ProgressView().controlSize(.small); Text(updateStatus) }.padding(8).background(.ultraThinMaterial) }
+            if let updateStatus = runtime.updateStatus { HStack { ProgressView().controlSize(.small); Text(updateStatus); Spacer(); if !runtime.upgradeWaiting { Button("Retry update") { Task { await runtime.start() } } } }.padding(8).background(.ultraThinMaterial) }
             if let webError { HStack { Image(systemName: "wifi.exclamationmark"); Text(webError); Spacer(); Button("Dismiss") { self.webError = nil } }.padding(12).background(.ultraThinMaterial) }
         }
         .sheet(isPresented: $showPhone) { PhoneAccessView(runtime: runtime) }

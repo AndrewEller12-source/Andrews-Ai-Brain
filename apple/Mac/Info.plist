@@ -40,7 +40,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://github.com/AndrewEller12-source/Andrews-Ai-Brain/releases/latest/download/appcast.xml</string>
+	<string>$(REWSTER_UPDATE_FEED_URL)</string>
 	<key>SUFeedUpdateInterval</key>
 	<integer>3600</integer>
 	<key>SUPublicEDKey</key>

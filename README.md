@@ -6,7 +6,7 @@ All preferences and work history stay in the existing local application data dir
 
 A local dashboard powered by the Codex app-server and official Codex SDK. One inbox routes tasks to projects and available models; a department graph shows live desktop and dashboard activity alongside recorded history. Requests are persisted before routing and dispatched through a bounded queue.
 
-See [APPLE-APPS.md](APPLE-APPS.md) for the editable Mac and iPhone apps, or [TREY-QUICKSTART.md](TREY-QUICKSTART.md) for the portable dashboard. Existing Rewster Command data and task history are preserved.
+See [APPLE-APPS.md](APPLE-APPS.md) for the editable Mac and iPhone apps, or [CUSTOMER-QUICKSTART.md](CUSTOMER-QUICKSTART.md) for the portable dashboard. Existing Rewster Command data and task history are preserved.
 
 ## Install and run
 

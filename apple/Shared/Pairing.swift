@@ -44,7 +44,7 @@ enum PairingError: LocalizedError {
 }
 
 enum PairingKeychain {
-    private static let service = "com.andrews.ai.brain.pairing"
+    private static let service = "ai.rewster.taskmanager.pairing"
     private static var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: "paired-mac"]
     }

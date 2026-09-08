@@ -8,6 +8,9 @@ const arch=process.argv[2]||process.arch;if(!['arm64','x64'].includes(arch))thro
 const nodeVersion='v24.19.0',nodeFile=`node-${nodeVersion}-darwin-${arch}.tar.gz`,base=`https://nodejs.org/dist/${nodeVersion}/`;
 const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-mac-build-')),folder='Rewster Command',staged=path.join(temporary,folder);
 const output=path.join(source,'dist',`Ai-Task-Manager-${version}-macOS-${arch}.zip`);
+const policy=process.env.REWSTER_RELEASE_PRIVACY_POLICY;
+if(!policy||!fs.statSync(policy).isFile())throw Error('Set REWSTER_RELEASE_PRIVACY_POLICY to the private customer-release policy.');
+if(fs.existsSync(output))throw Error('Release output already exists; use a new version and preserve immutable artifacts.');
 async function download(url){const res=await fetch(url,{signal:AbortSignal.timeout(120000)});if(!res.ok)throw Error(`Download failed: ${res.status} ${url}`);return Buffer.from(await res.arrayBuffer());}
 try{
  stageRelease(source,staged);
@@ -27,6 +30,7 @@ try{
  const entries=[];
  function walk(directory){for(const name of fs.readdirSync(directory)){const file=path.join(directory,name),relative=path.relative(staged,file).split(path.sep).join('/'),stat=fs.lstatSync(file);if(relative==='RELEASE-MANIFEST.json')continue;if(stat.isSymbolicLink()){const target=fs.readlinkSync(file);const resolved=path.resolve(path.dirname(file),target);if(!resolved.startsWith(staged+path.sep))throw Error('External symlink in package');entries.push({file:relative,link:target});}else if(stat.isDirectory()){if(['.local','.codex'].includes(name))throw Error('Private folder in package');walk(file);}else{entries.push({file:relative,sha256:createHash('sha256').update(fs.readFileSync(file)).digest('hex')});}}}
  walk(staged);fs.writeFileSync(path.join(staged,'RELEASE-MANIFEST.json'),JSON.stringify({application:'Ai Task Manager',version,platform:'darwin',architecture:arch,nodeVersion,nodeSource:base+nodeFile,nodeSha256:expected,files:entries},null,2)+'\n');
- fs.mkdirSync(path.dirname(output),{recursive:true});fs.rmSync(output,{force:true});execFileSync('zip',['-q','-y','-r',output,folder],{cwd:temporary,timeout:180000});
+ fs.mkdirSync(path.dirname(output),{recursive:true});execFileSync('zip',['-q','-y','-r',output,folder],{cwd:temporary,timeout:180000});
+ execFileSync('python3',[path.join(source,'scripts/check-release-privacy.py'),'--policy',path.resolve(policy),'--report',path.join(source,'dist',`privacy-portable-mac-${version}-${arch}.json`),output],{stdio:'pipe',timeout:180000});
  console.log(JSON.stringify({archive:output,architecture:arch,files:entries.length,bytes:fs.statSync(output).size,nodeSha256:expected}));
 }finally{fs.rmSync(temporary,{recursive:true,force:true});}

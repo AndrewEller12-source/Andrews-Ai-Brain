@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+volumeRoot="${3:-/}"
+appPath="$volumeRoot/Applications/Ai Task Manager.app"
+oldID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$appPath/Contents/Info.plist" 2>/dev/null || true)
+newID='ai.rewster.taskmanager.mac'
+case "$oldID" in ''|*[!A-Za-z0-9.-]*) exit 0 ;; esac
+[ "$oldID" != "$newID" ] || exit 0
+# Only copy existing app browser storage in place on this customer's Mac.
+# The shared workspace/account directory is unchanged and is never packaged.
+for userDir in "$volumeRoot"/Users/*; do
+  [ -d "$userDir/Library" ] || continue
+  [ ! -L "$userDir" ] || continue
+  for parent in WebKit 'Application Support'; do
+    from="$userDir/Library/$parent/$oldID"
+    to="$userDir/Library/$parent/$newID"
+    if [ -d "$from" ] && [ ! -L "$from" ] && [ ! -e "$to" ] && [ ! -L "$to" ]; then
+      ownerUID=$(/usr/bin/stat -f %u "$userDir")
+      if [ "$(/usr/bin/id -u)" = 0 ]; then
+        [ "$ownerUID" != 0 ] || continue
+        /usr/bin/sudo -u "#$ownerUID" /usr/bin/ditto "$from" "$to"
+      else
+        /usr/bin/ditto "$from" "$to"
+      fi
+    fi
+  done
+done

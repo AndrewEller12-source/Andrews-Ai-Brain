@@ -32,41 +32,54 @@ final class MacRuntime: ObservableObject {
         return process
     }
     func start() async {
-        guard !starting, !ready else { return }
+        guard !starting else { return }
         starting = true; error = nil
         defer { starting = false }
-        if await healthy() { ready = true; return }
+        if await healthy(acceptOlder: true) { ready = true }
+        if await healthy() { ready = true; updateStatus = nil; return }
         do {
-            while let count = await pendingOlderWork(), count > 0 {
-                upgradeWaiting = true
-                error = "Your update is ready. There are \(count) unfinished requests in the current workspace. Finish or stop them there; this app will switch over automatically while this window stays open."
-                try await Task.sleep(for: .seconds(2))
+            while true {
+                if await healthy() { ready = true; upgradeWaiting = false; updateStatus = nil; return }
+                if let count = await pendingOlderWork() {
+                    if count == 0 { break }
+                    ready = true
+                    upgradeWaiting = true
+                    error = nil
+                    updateStatus = "You can keep working. The engine update will finish when its \(count) unfinished requests are done; running agents will not be interrupted."
+                } else if ready {
+                    upgradeWaiting = true
+                    updateStatus = "Workspace available. Checking when the engine can update safely…"
+                } else { break }
+                try await Task.sleep(for: .seconds(3))
             }
             upgradeWaiting = false; error = nil
+            if ready { updateStatus = "Applying the engine update. Your requests and drafts remain saved…" }
             let process = try makeProcess(script: "launch.mjs")
             process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
             launcher = process; try process.run()
             for _ in 0..<60 {
-                if await healthy() { ready = true; return }
+                if await healthy() { ready = true; updateStatus = nil; NotificationCenter.default.post(name: .init("WorkspaceRefresh"), object: nil); return }
                 try await Task.sleep(for: .milliseconds(500))
             }
-            error = "The workspace did not start. Check the local server log, then try again."
-        } catch { self.error = error.localizedDescription }
+            if ready {
+                updateStatus = "The current workspace is still available. Engine update deferred; use Retry update when work is idle."
+            } else { error = "The workspace did not start. Check the local server log, then try again." }
+        } catch { if ready { updateStatus = "Engine update deferred: " + error.localizedDescription } else { self.error = error.localizedDescription } }
     }
-    private func healthy() async -> Bool {
-        var request = URLRequest(url: dashboardURL.appendingPathComponent("api/health")); request.timeoutInterval = 1
+    private func healthy(acceptOlder: Bool = false) async -> Bool {
+        var request = URLRequest(url: dashboardURL.appendingPathComponent("api/health")); request.timeoutInterval = 5
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200,
                   let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
             let installed = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.7.0"
             let version = value["version"] as? String ?? "0"
-            return value["app"] as? String == "rewster-command" && version.compare(installed, options: .numeric) != .orderedAscending
+            return value["app"] as? String == "rewster-command" && (acceptOlder || version.compare(installed, options: .numeric) != .orderedAscending)
         } catch { return false }
     }
     private func pendingOlderWork() async -> Int? {
         do {
-            var request = URLRequest(url: dashboardURL.appendingPathComponent("api/health")); request.timeoutInterval = 2
+            var request = URLRequest(url: dashboardURL.appendingPathComponent("api/health")); request.timeoutInterval = 10
             let (healthData, _) = try await URLSession.shared.data(for: request)
             guard let health = try JSONSerialization.jsonObject(with: healthData) as? [String: Any], health["app"] as? String == "rewster-command" else { return nil }
             let installed = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.7.0"

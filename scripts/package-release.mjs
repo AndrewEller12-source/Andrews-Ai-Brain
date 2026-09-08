@@ -7,12 +7,12 @@ import {createHash} from 'node:crypto';
 export const releaseFiles = [
   'rewster-supervisor.mjs','rewster-review-intake.mjs','rewster-steering.mjs',
   'package.json','pnpm-lock.yaml','pnpm-workspace.yaml',
-  'department-chat.mjs','runtime-activity.mjs','state-storage.mjs','agent-directory.mjs','task-recovery.mjs','state-stream.mjs','server.mjs','bridge.mjs','core.mjs','universes.mjs','universe-discovery.mjs','organization.mjs','managers.mjs','upgrade.mjs','media.mjs','artifacts.mjs','conversation.mjs','runtime.mjs','approval.mjs','activity.mjs','desktop.mjs','desktop-frames.mjs','desktop-control.mjs','notifications.mjs','owner-commands.mjs','turn-request.mjs',
-  'app.js','index.html','style.css','README.md','TREY-QUICKSTART.md','APPLE-APPS.md','phone-bridge.mjs',
+  'scheduled-tasks.mjs','department-chat.mjs','runtime-activity.mjs','state-storage.mjs','agent-directory.mjs','task-recovery.mjs','state-stream.mjs','server.mjs','bridge.mjs','core.mjs','universes.mjs','universe-discovery.mjs','organization.mjs','managers.mjs','upgrade.mjs','media.mjs','artifacts.mjs','conversation.mjs','runtime.mjs','approval.mjs','activity.mjs','desktop.mjs','desktop-frames.mjs','desktop-control.mjs','notifications.mjs','owner-commands.mjs','turn-request.mjs',
+  'app.js','index.html','style.css','README.md','CUSTOMER-QUICKSTART.md','APPLE-APPS.md','phone-bridge.mjs',
   'Start Rewster Command.command','Stop Rewster Command.command',
   'Start Rewster Command.cmd','Stop Rewster Command.cmd',
   'scripts/launch.mjs','scripts/stop.mjs','scripts/doctor.mjs',
-  'scripts/sdk-smoke.mjs','scripts/app-smoke.mjs','scripts/package-release.mjs','scripts/package-mac.mjs','scripts/verify-mac-package.mjs','scripts/phone-bridge.mjs','scripts/stage-apple-runtime.mjs',
+  'scripts/sdk-smoke.mjs','scripts/app-smoke.mjs','scripts/package-release.mjs','scripts/package-mac.mjs','scripts/verify-mac-package.mjs','scripts/phone-bridge.mjs','scripts/stage-apple-runtime.mjs','scripts/check-release-privacy.py','release-privacy-requirements.json','PUBLISHING.md','scripts/prepare-update.mjs','scripts/migration/preinstall',
 ];
 export function stageRelease(source,destination) {
   fs.mkdirSync(destination,{recursive:true});
@@ -33,15 +33,17 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
   const version=JSON.parse(fs.readFileSync(path.join(source,'package.json'))).version;
   const output=path.resolve(process.argv[2]||path.join(source,'dist'));
+  const policy=process.env.REWSTER_RELEASE_PRIVACY_POLICY;
+  if(!policy||!fs.statSync(policy).isFile())throw Error('Set REWSTER_RELEASE_PRIVACY_POLICY to the private customer-release policy.');
   const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-release-'));
   try{
     const folder='Rewster Command';stageRelease(source,path.join(temporary,folder));fs.mkdirSync(output,{recursive:true});
     const archive=path.join(output,`Ai-Task-Manager-${version}.tar.gz`);
+    const zip=path.join(output,`Ai-Task-Manager-${version}.zip`);
+    if(fs.existsSync(archive)||fs.existsSync(zip))throw Error('Release output already exists; use a new version and preserve immutable artifacts.');
+    execFileSync('zip',['-q','-r',zip,folder],{cwd:temporary});
+    execFileSync('python3',[path.join(source,'scripts/check-release-privacy.py'),'--policy',path.resolve(policy),'--report',path.join(output,`privacy-portable-${version}.json`),zip]);
     execFileSync('tar',['-czf',archive,'-C',temporary,folder]);
-    console.log(archive);
-    if(process.platform!=='win32'){
-      const zip=path.join(output,`Ai-Task-Manager-${version}.zip`);
-      try{fs.rmSync(zip,{force:true});execFileSync('zip',['-q','-r',zip,folder],{cwd:temporary});console.log(zip);}catch(error){console.warn(`ZIP unavailable; tar.gz is ready (${error.message}).`);}
-    }
+    console.log(zip);console.log(archive);
   }finally{fs.rmSync(temporary,{recursive:true,force:true});}
 }

@@ -235,8 +235,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1400;
-				DEVELOPMENT_TEAM = 225ANW4K8A;
+				CURRENT_PROJECT_VERSION = 1402;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iPhone/Info.plist;
@@ -245,8 +244,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.andrews.ai.brain.phone;
+				MARKETING_VERSION = 0.14.2;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.rewster.taskmanager.phone;
 				PRODUCT_NAME = "Ai Task Manager";
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -262,7 +261,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1400;
+				CURRENT_PROJECT_VERSION = 1402;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -273,8 +272,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.andrews.ai.brain.mac;
+				MARKETING_VERSION = 0.14.2;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.rewster.taskmanager.mac;
 				PRODUCT_NAME = "Ai Task Manager";
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
@@ -300,8 +299,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1400;
-				DEVELOPMENT_TEAM = 225ANW4K8A;
+				CURRENT_PROJECT_VERSION = 1402;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iPhone/Info.plist;
@@ -310,8 +308,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.andrews.ai.brain.phone;
+				MARKETING_VERSION = 0.14.2;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.rewster.taskmanager.phone;
 				PRODUCT_NAME = "Ai Task Manager";
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -327,7 +325,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1400;
+				CURRENT_PROJECT_VERSION = 1402;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -338,8 +336,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.andrews.ai.brain.mac;
+				MARKETING_VERSION = 0.14.2;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.rewster.taskmanager.mac;
 				PRODUCT_NAME = "Ai Task Manager";
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
