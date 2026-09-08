@@ -29,7 +29,7 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
  case 'thread/start':{const t={id:'fixture-thread-'+(++serial),cwd:p.cwd,ephemeral:p.ephemeral,turn:null};threads.set(t.id,t);return ok({thread:t})}
  case 'thread/name/set':threads.get(p.threadId).name=p.name;return ok({});
  case 'thread/resume':{if(!threads.has(p.threadId)&&process.env.FAKE_CATALOG_FILE){const saved=JSON.parse(fs.readFileSync(process.env.FAKE_CATALOG_FILE,'utf8')).find(t=>t.id===p.threadId);if(saved)threads.set(p.threadId,{...saved,turn:null});}return ok({thread:threads.get(p.threadId)});}
- case 'thread/turns/list':return ok({data:threads.get(p.threadId)?.turn?[threads.get(p.threadId).turn]:[],nextCursor:null});
+ case 'thread/turns/list':return ok({data:threads.get(p.threadId)?.turn?[threads.get(p.threadId).turn]:process.env.FAKE_TURNS_FILE?JSON.parse(fs.readFileSync(process.env.FAKE_TURNS_FILE,'utf8')).filter(t=>t.threadId===p.threadId):[],nextCursor:null});
  case 'thread/items/list':if(process.env.FAKE_ITEMS_FILE){const all=JSON.parse(fs.readFileSync(process.env.FAKE_ITEMS_FILE,'utf8')).filter(r=>!p.turnId||r.turnId===p.turnId),start=Number(p.cursor||0),limit=p.limit||100;return ok({data:all.slice(start,start+limit),nextCursor:all.length>start+limit?String(start+limit):null});}return ok({data:[{item:{type:'agentMessage',text:threads.get(p.threadId)?.response||'Fixture response'}}],nextCursor:null});
  case 'turn/start':{
  const t=threads.get(p.threadId);if(!t)return send({id:m.id,error:{message:'Unknown fixture thread'}});

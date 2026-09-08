@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 export const releaseFiles = [
   'rewster-supervisor.mjs','rewster-review-intake.mjs','rewster-steering.mjs',
   'package.json','pnpm-lock.yaml','pnpm-workspace.yaml',
-  'state-stream.mjs','server.mjs','bridge.mjs','core.mjs','universes.mjs','universe-discovery.mjs','organization.mjs','managers.mjs','upgrade.mjs','media.mjs','artifacts.mjs','conversation.mjs','runtime.mjs','approval.mjs','activity.mjs','desktop.mjs','desktop-frames.mjs','desktop-control.mjs','notifications.mjs','owner-commands.mjs','turn-request.mjs',
+  'task-recovery.mjs','state-stream.mjs','server.mjs','bridge.mjs','core.mjs','universes.mjs','universe-discovery.mjs','organization.mjs','managers.mjs','upgrade.mjs','media.mjs','artifacts.mjs','conversation.mjs','runtime.mjs','approval.mjs','activity.mjs','desktop.mjs','desktop-frames.mjs','desktop-control.mjs','notifications.mjs','owner-commands.mjs','turn-request.mjs',
   'app.js','index.html','style.css','README.md','TREY-QUICKSTART.md','APPLE-APPS.md','phone-bridge.mjs',
   'Start Rewster Command.command','Stop Rewster Command.command',
   'Start Rewster Command.cmd','Stop Rewster Command.cmd',

@@ -9,9 +9,9 @@ import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 async function unusedPort(){const s=net.createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const port=s.address().port;await new Promise(r=>s.close(r));return port}
-async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http-')),signedOut=false,itemsFile='',catalogFile='',autoManagers=false}={}){
+async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http-')),signedOut=false,itemsFile='',catalogFile='',turnsFile='',autoManagers=false}={}){
  const port=await unusedPort(),base=`http://127.0.0.1:${port}`,log=path.join(dir,'rpc.jsonl');let output='';
- const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PATH:path.dirname(process.execPath)+path.delimiter+process.env.PATH,PORT:String(port),REWSTER_DATA_DIR:dir,REWSTER_DESKTOP:'0',CODEX_BIN:path.join(root,'tests/fixtures/fake-codex.mjs'),FAKE_CODEX_LOG:log,FAKE_ITEMS_FILE:itemsFile,FAKE_CATALOG_FILE:catalogFile,FAKE_SIGNED_OUT:signedOut?'1':'0'},stdio:['ignore','pipe','pipe']});
+ const child=spawn(process.execPath,['server.mjs'],{cwd:root,env:{...process.env,PATH:path.dirname(process.execPath)+path.delimiter+process.env.PATH,PORT:String(port),REWSTER_DATA_DIR:dir,REWSTER_DESKTOP:'0',CODEX_BIN:path.join(root,'tests/fixtures/fake-codex.mjs'),FAKE_CODEX_LOG:log,FAKE_ITEMS_FILE:itemsFile,FAKE_CATALOG_FILE:catalogFile,FAKE_TURNS_FILE:turnsFile,FAKE_SIGNED_OUT:signedOut?'1':'0'},stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',d=>output+=d);child.stderr.on('data',d=>output+=d);
  const stop=async()=>{if(child.exitCode!==null||child.signalCode)return;child.kill('SIGTERM');await Promise.race([new Promise(r=>child.once('exit',r)),delay(2000).then(()=>child.kill('SIGKILL'))])};t.after(stop);
  const get=async()=>{const r=await fetch(base+'/api/state');assert.equal(r.status,200);return r.json()};
@@ -270,4 +270,44 @@ test('creating a universe automatically discovers old work and later new native 
 test('deleted universes remain recoverable and do not interrupt their existing queue',async t=>{
  const f=await fixture(t);await f.post('/api/settings',{paused:true});const u=(await f.post('/api/universes',{name:'AI business',autoDiscover:false})).body;
  const job=(await f.post('/api/intake',{messages:['Draft a clinic receptionist offer'],requestKey:'delete-world-queue',options:{universeId:u.id}})).body.ids[0];assert.equal((await f.post('/api/universes/delete',{id:u.id})).status,200);let s=await f.get();assert.equal(s.universes.length,0);assert.equal(s.deletedUniverses[0].id,u.id);assert.equal(s.jobs.find(j=>j.id===job).status,'queued');assert.equal((await f.post('/api/intake',{messages:['Do not enter deleted world'],requestKey:'deleted-world-reject',options:{universeId:u.id}})).status,400);await f.post('/api/settings',{paused:false});await until(async()=>(await f.get()).jobs.find(j=>j.id===job)?.status==='completed');assert.equal((await f.post('/api/universes/delete',{id:u.id,restore:true})).status,200);s=await f.get();assert.ok(s.universes[0].jobIds.includes(job));
+});
+
+
+test('paused work survives restart and resumes one new turn in the same conversation',async t=>{
+ const f=await fixture(t);const id=(await intake(f,'[hold] Preserve the existing workspace','pause-resume-work')).body.ids[0];
+ const active=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===id);return j.status==='running'?j:false});
+ assert.equal((await f.post('/api/pause-task',{id})).status,200);
+ const paused=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===id);return j.status==='paused'?j:false});
+ assert.equal(paused.turnId,active.turnId);assert.equal(paused.canResume,true);assert.equal((await f.get()).approvals.length,0);
+ const catalogFile=path.join(f.dir,'resume-catalog.json'),turnsFile=path.join(f.dir,'resume-turns.json');
+ fs.writeFileSync(catalogFile,JSON.stringify([{id:active.threadId,name:active.title,cwd:active.cwd,preview:'Saved work',status:{type:'idle'}}]));
+ fs.writeFileSync(turnsFile,JSON.stringify([{threadId:active.threadId,id:active.turnId,status:'interrupted'}]));
+ await f.stop();const next=await fixture(t,{dir:f.dir,catalogFile,turnsFile});
+ assert.equal((await next.get()).jobs.find(j=>j.id===id).status,'paused');
+ const replies=await Promise.all([next.post('/api/resume-task',{id}),next.post('/api/resume-task',{id})]);
+ assert.ok(replies.every(r=>r.status===202),JSON.stringify(replies));assert.equal(replies[0].body.id,replies[1].body.id);
+ const resumed=await until(async()=>{const j=(await next.get()).jobs.find(j=>j.id===replies[0].body.id);return j.status==='completed'?j:false});
+ assert.equal(resumed.threadId,active.threadId);assert.equal(resumed.cwd,active.cwd);assert.equal(resumed.approvalMode,active.approvalMode);assert.equal(resumed.resumeOf,id);
+ const calls=fs.readFileSync(next.log,'utf8').trim().split('\n').map(JSON.parse);
+ assert.equal(calls.filter(c=>c.method==='turn/start'&&c.params.clientUserMessageId===resumed.id).length,1);
+ assert.ok(calls.some(c=>c.method==='thread/resume'&&c.params.threadId===active.threadId));
+});
+
+test('startup recovers exact outcomes without replaying completed or open turns',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-recovery-')),catalogFile=path.join(dir,'catalog.json'),turnsFile=path.join(dir,'turns.json');
+ const statuses=['completed','interrupted','inProgress'];
+ fs.writeFileSync(path.join(dir,'state.json'),JSON.stringify({jobs:statuses.map((_,i)=>({id:'saved-'+i,status:'running',threadId:'thread-'+i,turnId:'turn-'+i,prompt:'Saved request',title:'Saved '+i,executionDispatched:true,options:{},events:[]})),settings:{autoManagers:false},projects:[],overrides:{}}));
+ fs.writeFileSync(catalogFile,JSON.stringify(statuses.map((_,i)=>({id:'thread-'+i,name:'Saved '+i,preview:'Saved',status:{type:'idle'}}))));
+ fs.writeFileSync(turnsFile,JSON.stringify(statuses.map((status,i)=>({threadId:'thread-'+i,id:'turn-'+i,status}))));
+ const f=await fixture(t,{dir,catalogFile,turnsFile});
+ const s=await until(async()=>{const s=await f.get();return s.jobs[1].status==='paused'?s:false});
+ assert.deepEqual(s.jobs.map(j=>j.status),['completed','paused','uncertain']);
+ assert.equal((await f.post('/api/resume-task',{id:'saved-2'})).status,400);
+ assert.equal(fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse).filter(c=>c.method==='turn/start').length,0);
+});
+
+test('pausing queued work never dispatches it and resume preserves its original receipt',async t=>{
+ const f=await fixture(t);await f.post('/api/settings',{paused:true});const id=(await intake(f,'Saved queue request','paused-queue-request')).body.ids[0];
+ assert.equal((await f.post('/api/pause-task',{id})).status,200);assert.equal((await f.get()).jobs[0].status,'paused');
+ const r=await f.post('/api/resume-task',{id});assert.equal(r.status,202);assert.equal(r.body.id,id);assert.equal((await f.get()).jobs.length,1);assert.equal((await f.get()).jobs[0].status,'queued');
 });

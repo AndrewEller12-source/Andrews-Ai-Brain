@@ -97,3 +97,12 @@ Automatic universe discovery waits for a specific subject. A generic AI business
 Use **Edit universe → Delete universe** to remove a world from the picker. Chats, files and active requests stay intact. Restore deleted worlds from **＋ Universe → Deleted universes**. Deleting All Codex is not supported.
 
 Questions in other universes stay visible through a workspace-wide reply banner. Branch status shows live work and pending reviews together. New universe setup uses business-neutral examples, and internal manager reviews stay out of discovery and the completion feed.
+
+
+### Closing the app and resuming work
+
+On macOS, closing the window or quitting Ai Task Manager leaves the detached background worker running. Reopen the app to reconnect to the same requests. The Mac must remain awake and online for local execution to continue.
+
+Use **Pause task** in a chat, request details, or Working now to stop an agent turn and retain its conversation and workspace. The request becomes **Paused · saved** only after Codex confirms the interruption. Find it under **Working now → Paused · saved** or **Needs attention**, then choose **Resume saved work**. This continues the same conversation with a new turn, checking previous results before repeating actions. Pausing an agent does not undo changes or guarantee that an external job it already launched has stopped.
+
+After a runtime restart, the app checks saved turn receipts: confirmed completions remain completed, confirmed interruptions become resumable, and an open or missing receipt stays **Outcome unconfirmed**. Use **Check outcome** for unresolved work. Recovery never automatically replays a possibly completed action. Paused requests stay saved through application updates.

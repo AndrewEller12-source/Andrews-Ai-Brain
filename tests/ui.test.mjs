@@ -381,3 +381,13 @@ test('switching universes clears an inspector continuation target',()=>{
  const universe={id:'blank',name:'New business',threadIds:[],jobIds:[],projectIds:[],departments:[],customDepartments:[],managers:[]};const a=app(snapshot({threads:[{id:'old',title:'Old business task',department:'Engineering'}],universes:[universe]}));
  try{a.$('[data-task="old"]').dispatchEvent(new a.w.Event('click'));a.$('#continue-task').click();assert.equal(a.$('#reply-target').hidden,false);a.$('#universe-picker').value='blank';a.$('#universe-picker').dispatchEvent(new a.w.Event('change'));assert.equal(a.$('#reply-target').hidden,true);assert.equal(a.$('#delivery').hidden,true);assert.match(a.$('#send').textContent,/Send request/);}finally{a.close();}
 });
+
+test('paused requests expose resume controls and remain discoverable after reopening',async()=>{
+ const state=snapshot({jobs:[{id:'saved',threadId:'chat-saved',title:'Saved work',status:'paused',department:'Engineering',prompt:'Finish the saved work',createdAt:Date.now(),events:[],options:{},canResume:true}],threads:[{id:'chat-saved',title:'Saved work',department:'Engineering',recordedStatus:'interrupted'}]});
+ const a=app(state);try{
+  a.$('[data-view="working"]').click();a.$('#work-filter').value='paused';a.$('#work-filter').dispatchEvent(new a.w.Event('change'));
+  assert.match(a.$('#content').textContent,/Paused · saved/);assert.ok(a.$('[data-resume-work="saved"]'));assert.equal(a.$('[data-pause-work]'),null);
+  a.$('[data-resume-work="saved"]').click();await tick();assert.equal(a.calls.filter(c=>c.url==='/api/resume-task').length,1);assert.equal(a.calls.find(c=>c.url==='/api/resume-task').body.id,'saved');
+  a.update(snapshot({...state,jobs:[{...state.jobs[0],status:'running'}]}));a.$('#work-filter').value='working';a.$('#work-filter').dispatchEvent(new a.w.Event('change'));assert.ok(a.$('[data-pause-work="saved"]'));assert.equal(a.$('[data-resume-work]'),null);
+ }finally{a.close()}
+});
