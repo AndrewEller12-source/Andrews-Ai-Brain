@@ -16,10 +16,21 @@ async function environment(t,{recorded='open',initial=snapshot(),requestItems,on
  const stop=async()=>{if(child.exitCode!==null||child.signalCode)return;child.kill('SIGTERM');await new Promise(r=>child.once('exit',r))};t.after(stop);
  const get=async()=>{const r=await fetch(base+'/api/state');assert.equal(r.status,200);return r.json()};const post=async(url,body)=>{const r=await fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json','X-Rewster-Request':'1',Origin:base},body:JSON.stringify(body)});return {status:r.status,body:await r.json()}};
  await until(async()=>{if(child.exitCode!==null)throw Error(output);try{const s=await get();return s.connected&&s.desktop.connected&&s.threads.length===1&&s.threads[0].activity.source==='desktop'}catch{return false}});
- return {get,post,stop};}
+ const rewsterPost=async(body)=>{const token=fs.readFileSync(path.join(data,'rewster-integration.token'),'utf8').trim();const r=await fetch(base+'/api/rewster/message',{method:'POST',headers:{'Content-Type':'application/json','X-Rewster-Request':'1',Authorization:'Bearer '+token},body:JSON.stringify(body)});return {status:r.status,body:await r.json()};};
+ return {get,post,stop,rewsterPost};}
  const app=await launch();return {...app,send,launch,seen,rpcCalls:()=>fs.readFileSync(rpc,'utf8').trim().split('\n').map(l=>JSON.parse(l))};
 }
 
+test('Rewster HTTP message steers the active desktop turn and never creates a queued job',async t=>{
+ const f=await environment(t,{onNativeRequest:(m,socket)=>{
+  assert.equal(m.method,'thread-follower-steer-turn');assert.equal(m.params.conversationId,threadId);
+  socket.write(frame({type:'response',requestId:m.requestId,method:m.method,handledByClientId:'desktop-owner',resultType:'success',result:{result:{turnId}}}));
+ }});
+ const body={threadId,expectedTurnId:turnId,message:'Check the original requirements while you work.',reason:'Owner enabled monitoring',requestKey:'http-steer-123'};
+ const a=await f.rewsterPost(body),b=await f.rewsterPost(body);assert.equal(a.status,200);assert.equal(a.body.status,'steered');assert.equal(a.body.turnId,turnId);assert.equal(b.body.duplicate,true);
+ assert.equal((await f.get()).jobs.length,0);assert.equal(f.seen.filter(m=>m.method==='thread-follower-steer-turn').length,1);
+ assert.ok(!f.rpcCalls().some(m=>m.method==='turn/start'&&m.params.threadId===threadId));
+});
 test('desktop runtime drives HTTP state and a new exact completion produces one persistent acknowledged notification',async t=>{
  const f=await environment(t);assert.equal((await f.get()).threads[0].activity.state,'running');assert.equal((await f.get()).notifications.length,0);
  f.send(snapshot('idle','completed',2));const s=await until(async()=>{const s=await f.get();return s.notifications.length?s:false});assert.equal(s.threads[0].activity.state,'completed');assert.equal(s.notifications.length,1);assert.equal(s.notifications[0].threadId,threadId);assert.equal(s.notifications[0].turnId,turnId);assert.equal(s.notifications[0].completedAt,1250);assert.equal(s.notifications[0].read,false);
@@ -57,13 +68,6 @@ test('an active desktop owner holds a continuation ready without sending native 
  assert.ok(!f.seen.some(m=>m.method?.startsWith('thread-follower-')));assert.ok(!f.rpcCalls().some(m=>m.method==='thread/resume'||m.method==='turn/start'&&m.params.threadId===threadId));assert.equal((await f.get()).notifications.length,0);
 });
 
-test('an active desktop owner receives steering immediately without queuing a new turn',async t=>{
- const f=await environment(t,{onNativeRequest:(m,socket)=>{if(m.method==='thread-follower-steer-turn')socket.write(frame({type:'response',requestId:m.requestId,method:m.method,handledByClientId:'desktop-owner',resultType:'success',result:{result:{turnId}}}));}});
- const result=await f.post('/api/steer',{threadId,expectedTurnId:turnId,message:'Use the smaller implementation.',attachments:[],requestKey:'desktop-steer-receipt'});assert.equal(result.status,200);assert.equal(result.body.receipt.status,'delivered');assert.equal(result.body.receipt.runtime,'desktop');
- const request=f.seen.find(m=>m.method==='thread-follower-steer-turn');assert.equal(request.version,1);assert.equal(request.targetClientId,'desktop-owner');assert.equal(request.params.conversationId,threadId);assert.equal(request.params.clientUserMessageId,'desktop-steer-receipt');assert.equal(request.params.input[0].text,'Use the smaller implementation.');
- assert.ok(!f.rpcCalls().some(m=>m.method==='turn/steer'||m.method==='turn/start'&&m.params.threadId===threadId));assert.equal((await f.get()).jobs.length,0);
-});
-
 test('a different desktop turn cannot become this request receipt while native start confirmation is pending',async t=>{
  let pending;const f=await environment(t,{recorded:'completed',initial:snapshot('idle','completed'),onNativeRequest:(m,socket)=>{pending={m,socket}}});
  const r=await f.post('/api/intake',{messages:['Resume with an exact receipt'],requestKey:'native-receipt-race',options:{threadId}});assert.equal(r.status,202);await until(()=>pending);
@@ -85,4 +89,10 @@ test('active desktop request text is loaded by exact turn ID with the real start
  const current=await until(async()=>{const thread=(await f.get()).threads[0];return thread.currentRequest?.status==='available'?thread:false});assert.equal(current.currentRequest.text,'Investigate the remaining inventory discrepancy.');assert.equal(current.activity.startedAt,1000);assert.equal(current.currentRequest.turnId,turnId);
  assert.ok(f.rpcCalls().some(r=>r.method==='thread/items/list'&&r.params.threadId===threadId&&r.params.turnId===turnId));
  f.send(snapshot('active','inProgress',2,'next-turn'));await until(async()=>{const thread=(await f.get()).threads[0];return thread.activity.turnId==='next-turn'&&thread.currentRequest?.turnId==='next-turn'});assert.equal((await f.get()).threads[0].currentRequest.status,'unavailable');
+});
+
+test('desktop questions arrive through the framed observer and owner answers exactly once',async t=>{
+ const initial=snapshot();initial.params.change.conversationState.requests=[{id:77,method:'item/tool/requestUserInput',params:{threadId,turnId,questions:[{id:'color',question:'Which color?',options:[{label:'Blue',description:'Ocean'}]}]}}];
+ const f=await environment(t,{initial,onNativeRequest:(m,socket)=>{assert.equal(m.method,'thread-follower-submit-user-input');assert.deepEqual(m.params.response,{answers:{color:{answers:['Blue']}}});socket.write(frame({type:'response',requestId:m.requestId,method:m.method,handledByClientId:'desktop-owner',resultType:'success',result:{ok:true}}));}});
+ const a=(await f.get()).approvals[0];assert.equal(a.source,'desktop');assert.equal(a.params.questions[0].question,'Which color?');assert.equal((await f.post('/api/approval',{id:a.id,decision:'accept',answers:{color:'Blue'}})).status,200);assert.equal((await f.get()).approvals.length,0);assert.equal((await f.post('/api/approval',{id:a.id,decision:'accept',answers:{color:'Blue'}})).status,400);assert.equal(f.seen.filter(m=>m.method==='thread-follower-submit-user-input').length,1);
 });

@@ -111,24 +111,6 @@ test('explicit task continuation preserves thread identity and records a new tur
  assert.equal(next.threadId,first.threadId);assert.notEqual(next.turnId,first.turnId);
 });
 
-test('steering appends to the exact active turn immediately and deduplicates its durable receipt',async t=>{
- const f=await fixture(t),started=await intake(f,'[hold] Keep working while I steer','steer-active-start'),jobId=started.body.ids[0];
- const active=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===jobId);return j.status==='running'&&j.turnId?j:false});
- const payload={threadId:active.threadId,expectedTurnId:active.turnId,message:'Focus on the failing tests first.',attachments:[],requestKey:'steer-exact-receipt'};
- const sent=await f.post('/api/steer',payload);assert.equal(sent.status,200);assert.equal(sent.body.receipt.status,'delivered');assert.equal(sent.body.receipt.turnId,active.turnId);
- const duplicate=await f.post('/api/steer',payload);assert.equal(duplicate.status,200);assert.equal(duplicate.body.receipt.id,sent.body.receipt.id);
- assert.equal((await f.post('/api/steer',{...payload,message:'Different message'})).status,400);
- const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse).filter(r=>r.method==='turn/steer');assert.equal(calls.length,1);assert.equal(calls[0].params.expectedTurnId,active.turnId);assert.equal(calls[0].params.input[0].text,payload.message);
- const state=await f.get();assert.equal(state.steers.length,1);assert.equal(state.jobs.find(j=>j.id===jobId).status,'running');await f.post('/api/cancel',{id:jobId});
-});
-
-test('steering refuses stale turn identity without dispatching a message',async t=>{
- const f=await fixture(t),started=await intake(f,'[hold] Active exact turn','steer-stale-start'),jobId=started.body.ids[0];
- const active=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===jobId);return j.status==='running'&&j.turnId?j:false});
- const reply=await f.post('/api/steer',{threadId:active.threadId,expectedTurnId:'stale-turn',message:'Do not deliver this',requestKey:'steer-stale-receipt'});assert.equal(reply.status,400);assert.match(reply.body.error,/changed/i);
- const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse);assert.ok(!calls.some(r=>r.method==='turn/steer'));assert.deepEqual((await f.get()).steers,[]);await f.post('/api/cancel',{id:jobId});
-});
-
 test('late completion and approval from an older turn cannot overwrite the active continuation',async t=>{
  const f=await fixture(t);const id=(await intake(f,'First task for stale-event test','stale-event-first')).body.ids[0];
  const first=await until(async()=>{const s=await f.get(),j=s.jobs.find(j=>j.id===id);return j.status==='completed'&&s.threads.some(t=>t.id===j.threadId)?j:false});

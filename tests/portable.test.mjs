@@ -78,6 +78,6 @@ test('native updater build numbers advance with the package version',()=>{
  const version=JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version;
  const [major,minor,patch]=version.split('.').map(Number),expected=major*10000+minor*100+patch;
  const project=fs.readFileSync(new URL('../apple/AndrewsAiBrain.xcodeproj/project.pbxproj',import.meta.url),'utf8');
- const builds=[...project.matchAll(/CURRENT_PROJECT_VERSION = "(\d+)"/g)];assert.equal(builds.length,4);
+ const builds=[...project.matchAll(/CURRENT_PROJECT_VERSION = "?(\d+)"?;/g)];assert.equal(builds.length,4);
  for(const match of builds)assert.equal(Number(match[1]),expected);
 });

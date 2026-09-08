@@ -119,7 +119,6 @@ body.chat-mode{overflow:hidden}.chat-mode .shell{height:100dvh;display:flex;flex
 #neural-map[data-detail-level="departments"] .node-meta.department-label { display: none; }
 #neural-map .label-leader { stroke:var(--branch); stroke-width:1; stroke-opacity:.55; stroke-dasharray:2 3; pointer-events:none; }
 /* Universes are a navigation scope, not another permanent panel. */
-.workspace-menu a{display:block;width:100%;text-align:left;border:0;margin:0!important;background:none;padding:11px 12px;font-size:13px;border-radius:4px}.workspace-menu a:hover{background:var(--surface-raised)}.workspace-menu a+button{border-top:1px solid var(--line);margin-top:5px!important}.site-links{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}.site-links .subtle{margin-left:0}
 #universe-picker{max-width:170px;min-width:100px;border:1px solid #35536b;border-radius:6px;background:#0b1b2d;color:#dceaf5;padding:6px 9px;font-size:13px}
 #universe-manage{margin:0;white-space:nowrap;padding:6px 9px}.breadcrumb{align-items:center;gap:8px;min-width:0}.header-location{min-width:0}
 .universe-dialog{width:min(580px,calc(100vw - 28px));max-height:90dvh;overflow:auto;border:1px solid #45677c;border-radius:15px;padding:25px;background:#101e30;color:#dce8f4;box-shadow:0 24px 100px #0008}.universe-dialog::backdrop{background:#020912b8;backdrop-filter:blur(3px)}
@@ -129,3 +128,13 @@ body.chat-mode{overflow:hidden}.chat-mode .shell{height:100dvh;display:flex;flex
 @media(prefers-reduced-motion:reduce){.composer{transition:none}}
 @media(min-width:901px) and (max-width:1450px){header #account-settings{display:none}header .breadcrumb>strong,header .breadcrumb>span{display:none}header .connection{gap:5px}header .connection .subtle{margin-left:4px}header .breadcrumb{gap:5px}}
 .universe-auto-choice{display:flex!important;gap:11px!important;align-items:flex-start;padding:13px;background:#0c2633;border:1px solid #315c6d;border-radius:8px}.universe-auto-choice input{width:auto!important;margin-top:4px}.universe-auto-choice small{display:block;margin-top:6px;font-size:12px;line-height:1.6;color:#9dbacc}.universe-discovery-status{display:block;font-size:12px;line-height:1.5;color:#8ebac9;margin-top:5px}.universe-work-list small+small{margin-top:5px;color:#8ba3b8}
+
+/* Owner input stays distinct from the activity stream. */
+.question-banner{display:block;width:100%;text-align:left;padding:15px 20px;margin:0 0 16px;border:1px solid #d6ac64;background:#262638;color:#ffe0a3;border-radius:8px;font-size:14px;cursor:pointer}
+.question-inbox{display:grid;gap:16px;margin-bottom:24px}.question-inbox article{padding:18px;border:1px solid var(--border,#304861);border-radius:10px;background:#132237}.answer-options{display:flex;flex-wrap:wrap;gap:8px}.answer-choice{white-space:normal;text-align:left;padding:10px 12px;background:#193047;border:1px solid #3b607a;border-radius:6px;color:#d6e7f5;cursor:pointer}.answer-choice:hover,.answer-choice:focus-visible{border-color:#63d5e7;background:#203e54}.send-now{border-color:#599cab!important}#delivery{border:1px solid #599cab;background:#142b3e;color:#bceffa;padding:6px;border-radius:5px}
+@keyframes ambient-orbit{0%,100%{opacity:.3}50%{opacity:.65}}.node-ambient .node-aura{animation:ambient-orbit 9s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.node-ambient .node-aura{animation:none}}
+
+.answer-field{border:0;padding:0;margin:16px 0;min-width:0}.answer-field legend{font-size:15px;font-weight:600;margin-bottom:10px}.answer-field input{width:100%;margin-top:12px;box-sizing:border-box}.attention-mode #metrics,.attention-mode .page-heading .date{display:none}.attention-mode .page-heading{margin-bottom:16px}.attention-mode #activity-connection{padding:10px 14px;margin-bottom:18px}.attention-mode .composer{position:relative;bottom:auto;margin-top:24px}.universe-expanded #content{flex-direction:column}.universe-expanded .question-banner{flex-shrink:0}.universe-expanded .neural-console{flex:1}
+
+.site-links{display:flex;flex-wrap:wrap;gap:10px}.site-links a{padding:10px 14px;border:1px solid var(--line);border-radius:6px;color:var(--accent)}

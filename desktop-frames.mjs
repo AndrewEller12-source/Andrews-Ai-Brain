@@ -7,6 +7,7 @@ function wanted(path){
  const start=path.indexOf('conversationState');
  if(start>=0){const p=path.slice(start+1);if(!p.length)return true;
   if(metadata.has(p[0]))return p.length===1;
+  if(p[0]==='requests')return true;
   if(p[0]==='threadRuntimeStatus')return p.length===1||['type','activeFlags'].includes(p[1]);
   if(p[0]==='turnHistory')return p.length===1||p[1]==='history'&&(p.length===2||p[2]==='entitiesByKey'&&(p.length<=4||p.length===5&&turnFields.has(p[4])));
   if(p[0]==='turns')return p.length<=2||p.length===3&&turnFields.has(p[2]);

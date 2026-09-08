@@ -13,8 +13,14 @@ const flags=value=>Array.isArray(value)?value.filter(v=>typeof v==='string'):[];
 const runtimeSummary=value=>({type:typeof value?.type==='string'?value.type:undefined,activeFlags:flags(value?.activeFlags)});
 const safeKey=k=>typeof k==='string'&&!['__proto__','constructor','prototype'].includes(k);
 function turnSummary(t){return Object.fromEntries(Object.entries(t||{}).filter(([k,v])=>turnFields.has(k)&&(v===null||['string','number'].includes(typeof v))));}
+export function compactQuestion(r){
+ if(r?.method!=='item/tool/requestUserInput'||!['string','number'].includes(typeof r.id))return null;
+ const p=r.params||{};if(!Array.isArray(p.questions)||p.questions.length>20)return null;
+ return {id:r.id,method:r.method,params:{threadId:p.threadId,turnId:p.turnId,itemId:p.itemId,questions:p.questions.map(q=>({id:q.id,header:q.header,question:q.question,isSecret:q.isSecret,options:q.options}))}};
+}
 export function compactDesktopState(s){
  const state=Object.fromEntries([...scalarFields].filter(k=>typeof s?.[k]==='string').map(k=>[k,s[k]]));
+ state.requests=(s?.requests||[]).map(compactQuestion);
  state.threadRuntimeStatus=runtimeSummary(s?.threadRuntimeStatus);
  state.entities={};for(const [k,t]of Object.entries(s?.turnHistory?.history?.entitiesByKey||{}))if(safeKey(k))state.entities[k]=turnSummary(t);
  for(const [i,t]of (s?.turns||[]).entries())state.entities['legacy:'+i]=turnSummary(t);
@@ -24,6 +30,13 @@ export function applyDesktopPatches(state,patches){
  for(const p of patches||[]){if(!['add','remove','replace'].includes(p.op))throw Error('Unsupported desktop patch operation');const a=p.path;if(!Array.isArray(a)||a.some(k=>typeof k==='string'&&!safeKey(k)))throw Error('Invalid desktop patch path');
   if(a.length===0){for(const key of Object.keys(state))delete state[key];Object.assign(state,compactDesktopState(p.op==='remove'?{}:p.value));continue;}
   if(scalarFields.has(a[0])&&a.length===1){if(p.op==='remove')delete state[a[0]];else if(typeof p.value==='string')state[a[0]]=p.value;continue;}
+  if(a[0]==='requests'){
+   state.requests??=[];
+   if(a.length===1)state.requests=(p.op==='remove'?[]:p.value||[]).map(compactQuestion);
+   else if(a.length===2){const i=Number(a[1]);if(!Number.isInteger(i)||i<0||i>state.requests.length)throw Error('Invalid request index');if(p.op==='remove')state.requests.splice(i,1);else if(p.op==='add')state.requests.splice(i,0,compactQuestion(p.value));else state.requests[i]=compactQuestion(p.value);}
+   else throw Error('Question changed; refresh the desktop snapshot');
+   continue;
+  }
   if(a[0]==='threadRuntimeStatus'){
    if(a.length===1)state.threadRuntimeStatus=runtimeSummary(p.op==='remove'?{}:p.value);
    else if(a[1]==='type')state.threadRuntimeStatus.type=p.op==='remove'?undefined:p.value;

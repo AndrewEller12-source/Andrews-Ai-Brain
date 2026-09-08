@@ -79,3 +79,7 @@ test('stream decoder preserves patch revisions and receipts across adjacent frag
 test('stream decoder rejects invalid declared lengths without buffering their bodies',async()=>{
  const {DesktopFrameDecoder}=await import('../desktop-frames.mjs');for(const size of [0,1024*1024*1024+1]){let error,delivered=false;const decoder=new DesktopFrameDecoder(()=>delivered=true,e=>error=e),header=Buffer.alloc(4);header.writeUInt32LE(size);decoder.push(header);assert.match(error.message,/Invalid desktop frame length/);assert.equal(delivered,false);decoder.close();}
 });
+
+test('pending desktop questions survive compaction and resolve without exposing unrelated request bodies',()=>{
+ const q={id:42,method:'item/tool/requestUserInput',params:{threadId:'task',turnId:'turn-1',questions:[{id:'color',question:'Which color?',options:[{label:'Blue',description:'Ocean blue'}]}]}},s=compactDesktopState({...state(),requests:[{id:1,method:'other',params:{private:'secret'}},q]});assert.equal(s.requests[0],null);assert.deepEqual(JSON.parse(JSON.stringify(s.requests[1].params.questions)),q.params.questions);applyDesktopPatches(s,[{op:'remove',path:['requests',0]}]);assert.equal(s.requests[0].id,42);applyDesktopPatches(s,[{op:'replace',path:['requests'],value:[]}]);assert.deepEqual(s.requests,[]);
+});

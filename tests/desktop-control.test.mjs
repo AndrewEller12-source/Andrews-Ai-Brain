@@ -2,6 +2,14 @@ import test from 'node:test';import assert from 'node:assert/strict';import {Eve
 import {DesktopControl} from '../desktop-control.mjs';
 function fixture(t,timeoutMs=250){const observer=new EventEmitter();Object.assign(observer,{connected:true,clientId:'our-observer',records:new Map([['task',{owner:'desktop-owner',activity:{state:'completed',turnId:'previous-turn'}}]]),sent:[],send(message){this.sent.push(message)}});const control=new DesktopControl(observer,{timeoutMs});t.after(()=>control.close());return {observer,control};}
 function respond(observer,request,result){observer.emit('message',{type:'response',requestId:request.requestId,resultType:'success',method:request.method,handledByClientId:request.targetClientId,result});}
+test('steering uses follower protocol v1, preserves settings and verifies the active turn receipt',async t=>{
+ const {observer,control}=fixture(t);observer.records.get('task').activity={state:'running',turnId:'turn'};
+ await assert.rejects(control.steerTurn('task',{prompt:'Correction',expectedTurnId:'old'}),/changed/);
+ const pending=control.steerTurn('task',{prompt:'Check requirements',expectedTurnId:'turn',clientId:'exact-message'}),request=observer.sent[0];
+ assert.equal(request.method,'thread-follower-steer-turn');assert.equal(request.version,1);assert.equal(request.params.clientUserMessageId,'exact-message');assert.equal(request.params.input[0].text,'Check requirements');assert.ok(request.params.restoreMessage.context);assert.equal(request.params.turnStart,undefined);
+ respond(observer,request,{result:{turnId:'turn'}});assert.equal((await pending).turnId,'turn');
+ const mismatch=control.steerTurn('task',{prompt:'Check again',expectedTurnId:'turn'});respond(observer,observer.sent[1],{result:{turnId:'different'}});await assert.rejects(mismatch,e=>e.uncertain===true);
+});
 
 test('start dispatches exact targeted follower schema and normalizes wrapped turn receipt',async t=>{
  const {observer,control}=fixture(t);assert.equal(control.supports(),true);assert.equal(control.hasOwner('task'),true);
@@ -38,18 +46,6 @@ test('interrupt targets the exact observed active turn using local protocol v4',
  const pending=control.interrupt('task','running-turn'),request=observer.sent[0];assert.equal(request.version,4);assert.equal(request.method,'thread-follower-interrupt-turn');assert.deepEqual(request.params,{conversationId:'task',mode:'user-stop',expectedTurnId:'running-turn'});
  respond(observer,request,{ok:true,interruptedTurnId:'running-turn'});assert.deepEqual(await pending,{ok:true,interruptedTurnId:'running-turn'});
 });
-test('steer targets the exact observed active turn using the native follower receipt',async t=>{
- const {observer,control}=fixture(t);observer.records.get('task').activity={state:'running',turnId:'running-turn'};
- await assert.rejects(control.steerTurn('task',{turnId:'stale-turn',prompt:'Wrong turn'}),/no longer/);assert.equal(observer.sent.length,0);
- const pending=control.steerTurn('task',{turnId:'running-turn',prompt:'Focus on tests',clientId:'steer-receipt'}),request=observer.sent[0];
- assert.equal(request.version,1);assert.equal(request.method,'thread-follower-steer-turn');assert.deepEqual(request.params,{conversationId:'task',clientUserMessageId:'steer-receipt',input:[{type:'text',text:'Focus on tests',text_elements:[]}]});
- respond(observer,request,{result:{turnId:'running-turn'}});assert.deepEqual(await pending,{turnId:'running-turn'});
-});
-test('steer refuses a mismatched native turn receipt as unconfirmed',async t=>{
- const {observer,control}=fixture(t);observer.records.get('task').activity={state:'waiting',turnId:'running-turn'};
- const pending=control.steerTurn('task',{turnId:'running-turn',prompt:'Continue'}),request=observer.sent[0];respond(observer,request,{result:{turnId:'different-turn'}});
- await assert.rejects(pending,error=>error.uncertain===true&&/matching turn receipt/.test(error.message));
-});
 test('definite discovery rejection does not claim execution and sends no fallback request',async t=>{
  const {observer,control}=fixture(t);const pending=control.startTurn('task',{prompt:'Hello'});observer.emit('message',{type:'response',requestId:observer.sent[0].requestId,resultType:'error',error:'no-client-found'});await assert.rejects(pending,error=>!error.uncertain&&error.message==='no-client-found');assert.equal(observer.sent.length,1);
 });
@@ -74,4 +70,10 @@ test('desktop follow-ups carry the selected native approval profile and reject i
  if(mode!=='full-auto')assert.deepEqual(request.sandboxPolicy.writableRoots,['/work/project']);
  respond(observer,sent,{result:{turn:{id:'turn-'+mode}}});await pending;
  }
+});
+
+test('question answers target the exact pending request and require owner confirmation',async t=>{
+ const {observer,control}=fixture(t);observer.records.get('task').state={requests:[{id:42,method:'item/tool/requestUserInput',params:{threadId:'task'}}]};
+ await assert.rejects(control.answerQuestion('task','missing',{}),/no longer pending/);
+ const response={answers:{color:{answers:['Blue']}}},pending=control.answerQuestion('task',42,response),request=observer.sent[0];assert.equal(request.method,'thread-follower-submit-user-input');assert.equal(request.version,1);assert.deepEqual(request.params,{conversationId:'task',requestId:42,response});respond(observer,request,{ok:true});assert.equal((await pending).ok,true);
 });

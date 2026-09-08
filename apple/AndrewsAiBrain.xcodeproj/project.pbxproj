@@ -1,58 +1,403 @@
 // !$*UTF8*$!
-{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
- SPARKLE000000000000000001 = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/sparkle-project/Sparkle"; requirement = {kind = exactVersion; version = "2.9.6";};};
- SPARKLE000000000000000002 = {isa = XCSwiftPackageProductDependency; package = SPARKLE000000000000000001; productName = Sparkle;};
- SPARKLE000000000000000003 = {isa = PBXBuildFile; productRef = SPARKLE000000000000000002;};
- SPARKLE000000000000000004 = {isa = PBXBuildFile; productRef = SPARKLE000000000000000002; settings = {ATTRIBUTES = (CodeSignOnCopy,RemoveHeadersOnCopy);};};
- SPARKLE000000000000000005 = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 10; files = (SPARKLE000000000000000004); name = "Embed Frameworks"; runOnlyForDeploymentPostprocessing = 0;};
-		33C9B363AA666F43190FA83F = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Shared/Pairing.swift"; sourceTree = "<group>"; };
-		2567A5EC9705EB7AC2C98403 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Shared/BrainWebView.swift"; sourceTree = "<group>"; };
-		FA3B131E8B453B8AE749EAA0 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mac/MacApp.swift"; sourceTree = "<group>"; };
-		B589C6018692E4347C6254E3 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mac/MacRuntime.swift"; sourceTree = "<group>"; };
-		C3923FF987359652CDB01E40 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "iPhone/iPhoneApp.swift"; sourceTree = "<group>"; };
-		B4A619251C5C397F26D05C9B = { isa = PBXFileReference; lastKnownFileType = folder; path = Runtime; sourceTree = "<group>"; };
-		6885AE5B93876F3DA013F1A5 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ai Task Manager.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		936EB2D8970E710A62425628 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ai Task Manager.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		DFF5C0EF11985580987C014E = { isa = PBXBuildFile; fileRef = 33C9B363AA666F43190FA83F; };
-		A1D76B811B22C96D2C6B4D68 = { isa = PBXBuildFile; fileRef = 2567A5EC9705EB7AC2C98403; };
-		DB8942FEEC8A420D7930AF18 = { isa = PBXBuildFile; fileRef = FA3B131E8B453B8AE749EAA0; };
-		1236653508F1E6B7ACC705A4 = { isa = PBXBuildFile; fileRef = B589C6018692E4347C6254E3; };
-		94E429174467BC5A7A3CE1DB = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (DFF5C0EF11985580987C014E,A1D76B811B22C96D2C6B4D68,DB8942FEEC8A420D7930AF18,1236653508F1E6B7ACC705A4); runOnlyForDeploymentPostprocessing = 0; };
-		66AFA61F658F0AAE55A7F9BE = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (SPARKLE000000000000000003); runOnlyForDeploymentPostprocessing = 0; };
-		4C0149993FC4FE9B89B93BBD = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (378C1A075415DF0CC8ED55A4,93480E6E55FDA50B47DFA214); runOnlyForDeploymentPostprocessing = 0; };
-		FB8476959066E5391A5A2938 = { isa = PBXNativeTarget; buildConfigurationList = 9D38A2FC58F82BE46DE5ED6E; buildPhases = (94E429174467BC5A7A3CE1DB,66AFA61F658F0AAE55A7F9BE,4C0149993FC4FE9B89B93BBD); packageProductDependencies = (SPARKLE000000000000000002); buildRules = (); dependencies = (); name = "Ai Task Manager Mac"; productName = "Ai Task Manager"; productReference = 6885AE5B93876F3DA013F1A5; productType = "com.apple.product-type.application"; };
-		879786BAEDB1AAB9CF1CEE6C = { isa = XCBuildConfiguration; name = Debug; buildSettings = {PRODUCT_NAME = "Ai Task Manager";PRODUCT_BUNDLE_IDENTIFIER = "com.andrews.ai.brain.mac";INFOPLIST_FILE = "Mac/Info.plist";GENERATE_INFOPLIST_FILE = "NO";ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";SWIFT_VERSION = "5.0";MARKETING_VERSION = "0.10.0";CURRENT_PROJECT_VERSION = "1000";CODE_SIGN_STYLE = "Automatic";ENABLE_USER_SCRIPT_SANDBOXING = "YES";SWIFT_STRICT_CONCURRENCY = "minimal";LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";SDKROOT = "macosx";SUPPORTED_PLATFORMS = "macosx";MACOSX_DEPLOYMENT_TARGET = "14.0";ENABLE_APP_SANDBOX = "NO";ENABLE_HARDENED_RUNTIME = "NO";}; };
-		F32F3356838B010091B25A45 = { isa = XCBuildConfiguration; name = Release; buildSettings = {PRODUCT_NAME = "Ai Task Manager";PRODUCT_BUNDLE_IDENTIFIER = "com.andrews.ai.brain.mac";INFOPLIST_FILE = "Mac/Info.plist";GENERATE_INFOPLIST_FILE = "NO";ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";SWIFT_VERSION = "5.0";MARKETING_VERSION = "0.10.0";CURRENT_PROJECT_VERSION = "1000";CODE_SIGN_STYLE = "Automatic";ENABLE_USER_SCRIPT_SANDBOXING = "YES";SWIFT_STRICT_CONCURRENCY = "minimal";LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";SDKROOT = "macosx";SUPPORTED_PLATFORMS = "macosx";MACOSX_DEPLOYMENT_TARGET = "14.0";ENABLE_APP_SANDBOX = "NO";ENABLE_HARDENED_RUNTIME = "NO";}; };
-		9D38A2FC58F82BE46DE5ED6E = { isa = XCConfigurationList; buildConfigurations = (879786BAEDB1AAB9CF1CEE6C,F32F3356838B010091B25A45); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		C4EAE97FDB63EE2E820EED7E = { isa = PBXBuildFile; fileRef = 33C9B363AA666F43190FA83F; };
-		3191FB34814CC9AB7F33F714 = { isa = PBXBuildFile; fileRef = 2567A5EC9705EB7AC2C98403; };
-		01191ECC27EE4200A417D53A = { isa = PBXBuildFile; fileRef = C3923FF987359652CDB01E40; };
-		5B2FFA4965E75AC9FAA556DC = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (C4EAE97FDB63EE2E820EED7E,3191FB34814CC9AB7F33F714,01191ECC27EE4200A417D53A); runOnlyForDeploymentPostprocessing = 0; };
-		600AF3AC18FEDD192F32B0C7 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		8253F9AF0DDCC3E95042F175 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (18024816E29A6AE7DC5DEA46,); runOnlyForDeploymentPostprocessing = 0; };
-		5D807D63FCEE5E91F6F0ABC3 = { isa = PBXNativeTarget; buildConfigurationList = A626C1AE73B15621130EC735; buildPhases = (5B2FFA4965E75AC9FAA556DC,600AF3AC18FEDD192F32B0C7,8253F9AF0DDCC3E95042F175); buildRules = (); dependencies = (); name = "Ai Task Manager iPhone"; productName = "Ai Task Manager"; productReference = 936EB2D8970E710A62425628; productType = "com.apple.product-type.application"; };
-		E787D47349D126009C328EA9 = { isa = XCBuildConfiguration; name = Debug; buildSettings = {PRODUCT_NAME = "Ai Task Manager";PRODUCT_BUNDLE_IDENTIFIER = "com.andrews.ai.brain.phone";INFOPLIST_FILE = "iPhone/Info.plist";GENERATE_INFOPLIST_FILE = "NO";ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";SWIFT_VERSION = "5.0";MARKETING_VERSION = "0.10.0";CURRENT_PROJECT_VERSION = "1000";CODE_SIGN_STYLE = "Automatic";ENABLE_USER_SCRIPT_SANDBOXING = "YES";SWIFT_STRICT_CONCURRENCY = "minimal";LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";SDKROOT = "iphoneos";SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";IPHONEOS_DEPLOYMENT_TARGET = "17.0";TARGETED_DEVICE_FAMILY = "1";SUPPORTS_MACCATALYST = "NO";}; };
-		7756B457937693E41A9CC2E6 = { isa = XCBuildConfiguration; name = Release; buildSettings = {PRODUCT_NAME = "Ai Task Manager";PRODUCT_BUNDLE_IDENTIFIER = "com.andrews.ai.brain.phone";INFOPLIST_FILE = "iPhone/Info.plist";GENERATE_INFOPLIST_FILE = "NO";ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon";SWIFT_VERSION = "5.0";MARKETING_VERSION = "0.10.0";CURRENT_PROJECT_VERSION = "1000";CODE_SIGN_STYLE = "Automatic";ENABLE_USER_SCRIPT_SANDBOXING = "YES";SWIFT_STRICT_CONCURRENCY = "minimal";LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";SDKROOT = "iphoneos";SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";IPHONEOS_DEPLOYMENT_TARGET = "17.0";TARGETED_DEVICE_FAMILY = "1";SUPPORTS_MACCATALYST = "NO";}; };
-		A626C1AE73B15621130EC735 = { isa = XCConfigurationList; buildConfigurations = (E787D47349D126009C328EA9,7756B457937693E41A9CC2E6); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		93480E6E55FDA50B47DFA214 = { isa = PBXBuildFile; fileRef = B4A619251C5C397F26D05C9B; };
-		86024CAD1E83101D97359D73 = { isa = PBXGroup; children = (6885AE5B93876F3DA013F1A5,936EB2D8970E710A62425628); name = Products; sourceTree = "<group>"; };
-		FAD58DE7366495DB4650CFEF = { isa = PBXGroup; children = (67299952E901D95386428234,C95447D1D68AAEAA23A71BFC,E6344218F4B9D6CA942522DE,33C9B363AA666F43190FA83F,2567A5EC9705EB7AC2C98403,FA3B131E8B453B8AE749EAA0,B589C6018692E4347C6254E3,C3923FF987359652CDB01E40,B4A619251C5C397F26D05C9B,86024CAD1E83101D97359D73); sourceTree = "<group>"; };
-		59233E4D684FB5A1A72525B8 = { isa = XCBuildConfiguration; name = Debug; buildSettings = {CLANG_ENABLE_MODULES = "YES";CLANG_ENABLE_OBJC_ARC = "YES";SWIFT_OPTIMIZATION_LEVEL = "-Onone";DEBUG_INFORMATION_FORMAT = "dwarf";ENABLE_TESTABILITY = "YES";SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG";}; };
-		8D5ED1041709BB7FC1DE2B10 = { isa = XCBuildConfiguration; name = Release; buildSettings = {CLANG_ENABLE_MODULES = "YES";CLANG_ENABLE_OBJC_ARC = "YES";SWIFT_OPTIMIZATION_LEVEL = "-O";DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";ENABLE_TESTABILITY = "NO";SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";}; };
-		927FED1AB2217D3B3EC771F8 = { isa = XCConfigurationList; buildConfigurations = (59233E4D684FB5A1A72525B8,8D5ED1041709BB7FC1DE2B10); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		46F86FAA6BBF9AC94A7E4595 = { isa = PBXProject; attributes = { LastUpgradeCheck = 2660; BuildIndependentTargetsInParallel = YES; }; buildConfigurationList = 927FED1AB2217D3B3EC771F8; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = FAD58DE7366495DB4650CFEF; productRefGroup = 86024CAD1E83101D97359D73; projectDirPath = ""; projectRoot = ""; packageReferences = (SPARKLE000000000000000001); targets = (FB8476959066E5391A5A2938,5D807D63FCEE5E91F6F0ABC3); };
-		C95447D1D68AAEAA23A71BFC = { isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Mac/Assets.xcassets"; sourceTree = "<group>"; };
-		378C1A075415DF0CC8ED55A4 = { isa = PBXBuildFile; fileRef = C95447D1D68AAEAA23A71BFC; };
-		E6344218F4B9D6CA942522DE = { isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "iPhone/Assets.xcassets"; sourceTree = "<group>"; };
-		18024816E29A6AE7DC5DEA46 = { isa = PBXBuildFile; fileRef = E6344218F4B9D6CA942522DE; };
-		F2B399BFF4E003BE13170613 = { isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "../app.js"; sourceTree = "<group>"; };
-		8718653861FFB5BC344273B5 = { isa = PBXFileReference; lastKnownFileType = text; path = "../style.css"; sourceTree = "<group>"; };
-		D77210FAA101D4D68F7D000D = { isa = PBXFileReference; lastKnownFileType = text; path = "../index.html"; sourceTree = "<group>"; };
-		884465A9A76334392A85F855 = { isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "../server.mjs"; sourceTree = "<group>"; };
-		CB0D651F3F96E62554D929A3 = { isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "../scripts/phone-bridge.mjs"; sourceTree = "<group>"; };
-		3F7D00967449E2EE16F3CBCD = { isa = PBXFileReference; lastKnownFileType = text; path = "../APPLE-APPS.md"; sourceTree = "<group>"; };
-		3905D7917F2B3429490B01CF = { isa = PBXFileReference; lastKnownFileType = text; path = "../README.md"; sourceTree = "<group>"; };
-		1D3536E38BE2A2FDA40C3C3E = { isa = PBXFileReference; lastKnownFileType = text; path = "Tests/PairingSmoke.swift"; sourceTree = "<group>"; };
-		FD105EC487C9193F1531DE2D = { isa = PBXFileReference; lastKnownFileType = text; path = "Tools/generate-icon.swift"; sourceTree = "<group>"; };
-		67299952E901D95386428234 = { isa = PBXGroup; name = "Dashboard source (edit here)"; children = (F2B399BFF4E003BE13170613,8718653861FFB5BC344273B5,D77210FAA101D4D68F7D000D,884465A9A76334392A85F855,CB0D651F3F96E62554D929A3,3F7D00967449E2EE16F3CBCD,3905D7917F2B3429490B01CF,1D3536E38BE2A2FDA40C3C3E,FD105EC487C9193F1531DE2D); sourceTree = "<group>"; };
-}; rootObject = 46F86FAA6BBF9AC94A7E4595; }
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01191ECC27EE4200A417D53A /* iPhone/iPhoneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3923FF987359652CDB01E40 /* iPhone/iPhoneApp.swift */; };
+		1236653508F1E6B7ACC705A4 /* Mac/MacRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = B589C6018692E4347C6254E3 /* Mac/MacRuntime.swift */; };
+		18024816E29A6AE7DC5DEA46 /* iPhone/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E6344218F4B9D6CA942522DE /* iPhone/Assets.xcassets */; };
+		3191FB34814CC9AB7F33F714 /* Shared/BrainWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2567A5EC9705EB7AC2C98403 /* Shared/BrainWebView.swift */; };
+		378C1A075415DF0CC8ED55A4 /* Mac/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C95447D1D68AAEAA23A71BFC /* Mac/Assets.xcassets */; };
+		93480E6E55FDA50B47DFA214 /* Runtime in Resources */ = {isa = PBXBuildFile; fileRef = B4A619251C5C397F26D05C9B /* Runtime */; };
+		A1D76B811B22C96D2C6B4D68 /* Shared/BrainWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2567A5EC9705EB7AC2C98403 /* Shared/BrainWebView.swift */; };
+		C4EAE97FDB63EE2E820EED7E /* Shared/Pairing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C9B363AA666F43190FA83F /* Shared/Pairing.swift */; };
+		DB8942FEEC8A420D7930AF18 /* Mac/MacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3B131E8B453B8AE749EAA0 /* Mac/MacApp.swift */; };
+		DFF5C0EF11985580987C014E /* Shared/Pairing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C9B363AA666F43190FA83F /* Shared/Pairing.swift */; };
+		SPARKLE000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = SPARKLE000000000000000002 /* Sparkle */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1D3536E38BE2A2FDA40C3C3E /* Tests/PairingSmoke.swift */ = {isa = PBXFileReference; lastKnownFileType = text; path = Tests/PairingSmoke.swift; sourceTree = "<group>"; };
+		2567A5EC9705EB7AC2C98403 /* Shared/BrainWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/BrainWebView.swift; sourceTree = "<group>"; };
+		33C9B363AA666F43190FA83F /* Shared/Pairing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/Pairing.swift; sourceTree = "<group>"; };
+		3905D7917F2B3429490B01CF /* ../README.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = ../README.md; sourceTree = "<group>"; };
+		3F7D00967449E2EE16F3CBCD /* ../APPLE-APPS.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = "../APPLE-APPS.md"; sourceTree = "<group>"; };
+		6885AE5B93876F3DA013F1A5 /* Ai Task Manager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ai Task Manager.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		8718653861FFB5BC344273B5 /* ../style.css */ = {isa = PBXFileReference; lastKnownFileType = text; path = ../style.css; sourceTree = "<group>"; };
+		884465A9A76334392A85F855 /* ../server.mjs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ../server.mjs; sourceTree = "<group>"; };
+		936EB2D8970E710A62425628 /* Ai Task Manager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Ai Task Manager.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B4A619251C5C397F26D05C9B /* Runtime */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Runtime; sourceTree = "<group>"; };
+		B589C6018692E4347C6254E3 /* Mac/MacRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/MacRuntime.swift; sourceTree = "<group>"; };
+		C3923FF987359652CDB01E40 /* iPhone/iPhoneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhone/iPhoneApp.swift; sourceTree = "<group>"; };
+		C95447D1D68AAEAA23A71BFC /* Mac/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Mac/Assets.xcassets; sourceTree = "<group>"; };
+		CB0D651F3F96E62554D929A3 /* ../scripts/phone-bridge.mjs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "../scripts/phone-bridge.mjs"; sourceTree = "<group>"; };
+		D77210FAA101D4D68F7D000D /* ../index.html */ = {isa = PBXFileReference; lastKnownFileType = text; path = ../index.html; sourceTree = "<group>"; };
+		E6344218F4B9D6CA942522DE /* iPhone/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = iPhone/Assets.xcassets; sourceTree = "<group>"; };
+		F2B399BFF4E003BE13170613 /* ../app.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ../app.js; sourceTree = "<group>"; };
+		FA3B131E8B453B8AE749EAA0 /* Mac/MacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mac/MacApp.swift; sourceTree = "<group>"; };
+		FD105EC487C9193F1531DE2D /* Tools/generate-icon.swift */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Tools/generate-icon.swift"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		600AF3AC18FEDD192F32B0C7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		66AFA61F658F0AAE55A7F9BE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				SPARKLE000000000000000003 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		67299952E901D95386428234 /* Dashboard source (edit here) */ = {
+			isa = PBXGroup;
+			children = (
+				F2B399BFF4E003BE13170613 /* ../app.js */,
+				8718653861FFB5BC344273B5 /* ../style.css */,
+				D77210FAA101D4D68F7D000D /* ../index.html */,
+				884465A9A76334392A85F855 /* ../server.mjs */,
+				CB0D651F3F96E62554D929A3 /* ../scripts/phone-bridge.mjs */,
+				3F7D00967449E2EE16F3CBCD /* ../APPLE-APPS.md */,
+				3905D7917F2B3429490B01CF /* ../README.md */,
+				1D3536E38BE2A2FDA40C3C3E /* Tests/PairingSmoke.swift */,
+				FD105EC487C9193F1531DE2D /* Tools/generate-icon.swift */,
+			);
+			name = "Dashboard source (edit here)";
+			sourceTree = "<group>";
+		};
+		86024CAD1E83101D97359D73 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6885AE5B93876F3DA013F1A5 /* Ai Task Manager.app */,
+				936EB2D8970E710A62425628 /* Ai Task Manager.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FAD58DE7366495DB4650CFEF = {
+			isa = PBXGroup;
+			children = (
+				67299952E901D95386428234 /* Dashboard source (edit here) */,
+				C95447D1D68AAEAA23A71BFC /* Mac/Assets.xcassets */,
+				E6344218F4B9D6CA942522DE /* iPhone/Assets.xcassets */,
+				33C9B363AA666F43190FA83F /* Shared/Pairing.swift */,
+				2567A5EC9705EB7AC2C98403 /* Shared/BrainWebView.swift */,
+				FA3B131E8B453B8AE749EAA0 /* Mac/MacApp.swift */,
+				B589C6018692E4347C6254E3 /* Mac/MacRuntime.swift */,
+				C3923FF987359652CDB01E40 /* iPhone/iPhoneApp.swift */,
+				B4A619251C5C397F26D05C9B /* Runtime */,
+				86024CAD1E83101D97359D73 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5D807D63FCEE5E91F6F0ABC3 /* Ai Task Manager iPhone */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A626C1AE73B15621130EC735 /* Build configuration list for PBXNativeTarget "Ai Task Manager iPhone" */;
+			buildPhases = (
+				5B2FFA4965E75AC9FAA556DC /* Sources */,
+				600AF3AC18FEDD192F32B0C7 /* Frameworks */,
+				8253F9AF0DDCC3E95042F175 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Ai Task Manager iPhone";
+			productName = "Ai Task Manager";
+			productReference = 936EB2D8970E710A62425628 /* Ai Task Manager.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FB8476959066E5391A5A2938 /* Ai Task Manager Mac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9D38A2FC58F82BE46DE5ED6E /* Build configuration list for PBXNativeTarget "Ai Task Manager Mac" */;
+			buildPhases = (
+				94E429174467BC5A7A3CE1DB /* Sources */,
+				66AFA61F658F0AAE55A7F9BE /* Frameworks */,
+				4C0149993FC4FE9B89B93BBD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Ai Task Manager Mac";
+			packageProductDependencies = (
+				SPARKLE000000000000000002 /* Sparkle */,
+			);
+			productName = "Ai Task Manager";
+			productReference = 6885AE5B93876F3DA013F1A5 /* Ai Task Manager.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		46F86FAA6BBF9AC94A7E4595 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2660;
+			};
+			buildConfigurationList = 927FED1AB2217D3B3EC771F8 /* Build configuration list for PBXProject "AndrewsAiBrain" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = FAD58DE7366495DB4650CFEF;
+			packageReferences = (
+				SPARKLE000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			productRefGroup = 86024CAD1E83101D97359D73 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FB8476959066E5391A5A2938 /* Ai Task Manager Mac */,
+				5D807D63FCEE5E91F6F0ABC3 /* Ai Task Manager iPhone */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4C0149993FC4FE9B89B93BBD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				378C1A075415DF0CC8ED55A4 /* Mac/Assets.xcassets in Resources */,
+				93480E6E55FDA50B47DFA214 /* Runtime in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8253F9AF0DDCC3E95042F175 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18024816E29A6AE7DC5DEA46 /* iPhone/Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5B2FFA4965E75AC9FAA556DC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C4EAE97FDB63EE2E820EED7E /* Shared/Pairing.swift in Sources */,
+				3191FB34814CC9AB7F33F714 /* Shared/BrainWebView.swift in Sources */,
+				01191ECC27EE4200A417D53A /* iPhone/iPhoneApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		94E429174467BC5A7A3CE1DB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DFF5C0EF11985580987C014E /* Shared/Pairing.swift in Sources */,
+				A1D76B811B22C96D2C6B4D68 /* Shared/BrainWebView.swift in Sources */,
+				DB8942FEEC8A420D7930AF18 /* Mac/MacApp.swift in Sources */,
+				1236653508F1E6B7ACC705A4 /* Mac/MacRuntime.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		59233E4D684FB5A1A72525B8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		7756B457937693E41A9CC2E6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1100;
+				DEVELOPMENT_TEAM = 225ANW4K8A;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = iPhone/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.andrews.ai.brain.phone;
+				PRODUCT_NAME = "Ai Task Manager";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		879786BAEDB1AAB9CF1CEE6C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1100;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Mac/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.andrews.ai.brain.mac;
+				PRODUCT_NAME = "Ai Task Manager";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		8D5ED1041709BB7FC1DE2B10 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_TESTABILITY = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		E787D47349D126009C328EA9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1100;
+				DEVELOPMENT_TEAM = 225ANW4K8A;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = iPhone/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.andrews.ai.brain.phone;
+				PRODUCT_NAME = "Ai Task Manager";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		F32F3356838B010091B25A45 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1100;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Mac/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.andrews.ai.brain.mac;
+				PRODUCT_NAME = "Ai Task Manager";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		927FED1AB2217D3B3EC771F8 /* Build configuration list for PBXProject "AndrewsAiBrain" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59233E4D684FB5A1A72525B8 /* Debug */,
+				8D5ED1041709BB7FC1DE2B10 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9D38A2FC58F82BE46DE5ED6E /* Build configuration list for PBXNativeTarget "Ai Task Manager Mac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				879786BAEDB1AAB9CF1CEE6C /* Debug */,
+				F32F3356838B010091B25A45 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A626C1AE73B15621130EC735 /* Build configuration list for PBXNativeTarget "Ai Task Manager iPhone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E787D47349D126009C328EA9 /* Debug */,
+				7756B457937693E41A9CC2E6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		SPARKLE000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		SPARKLE000000000000000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPARKLE000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+}

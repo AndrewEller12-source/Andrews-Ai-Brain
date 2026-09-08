@@ -14,4 +14,26 @@ test('review requires exact source turn and evidence',()=>fixture((s,j)=>{assert
 test('reviews are bounded and correction enqueues once on the exact source thread',()=>fixture((s,j)=>{const [review]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);assert.ok(review.rewsterReview);assert.equal(queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]).length,0);s.update(review.id,{status:'completed',response:result(j)});processReviews(s);const correction=s.data.jobs.at(-1);assert.equal(correction.options.threadId,j.threadId);assert.equal(correction.correctionRoot,j.id);assert.equal(correction.approvalMode,'manual');const count=s.data.jobs.length;processReviews(s);assert.equal(s.data.jobs.length,count);}));
 test('newer owner work prevents stale automatic correction',()=>fixture((s,j)=>{const [review]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);s.update(review.id,{status:'completed',response:result(j)});const [newer]=s.accept(['New owner direction'],'new-direction',{threadId:j.threadId});Object.assign(newer,{threadId:j.threadId,createdAt:j.createdAt+1});processReviews(s);assert.match(j.quality.ownerAttention,/Newer work/);assert.equal(j.quality.correctionJobId,undefined);}));
 test('second correction limit escalates instead of looping',()=>fixture((s,j)=>{const [review]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);s.update(review.id,{status:'completed',response:result(j)});s.data.jobs.push({id:'c1',correctionRoot:j.id},{id:'c2',correctionRoot:j.id});processReviews(s);assert.match(j.quality.ownerAttention,/Two correction/);}));
-test('disabled supervisor and malformed results fail closed',()=>fixture((s,j)=>{s.data.settings.rewsterSupervisor.enabled=false;assert.deepEqual(queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]),[]);s.data.settings.rewsterSupervisor.enabled=true;const [r]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);s.update(r.id,{status:'completed',response:'Looks good'});processReviews(s);assert.ok(r.reviewError);assert.equal(j.quality,undefined);}));
+test('disabled supervisor and malformed results fail closed with a visible review blocker',()=>fixture((s,j)=>{s.data.settings.rewsterSupervisor.enabled=false;assert.deepEqual(queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]),[]);s.data.settings.rewsterSupervisor.enabled=true;const [r]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);s.update(r.id,{status:'completed',response:'Looks good'});processReviews(s);assert.ok(r.reviewError);assert.equal(j.quality.verdict,'needs_owner');}));
+test('pass requires inspected checks and never sends a worker follow-up',()=>fixture((s,j)=>{
+ const pass={sourceJobId:j.id,sourceTurnId:j.turnId,verdict:'pass',findings:[]};
+ assert.throws(()=>parseReview(JSON.stringify(pass),j),/checklist/);
+ pass.checks=[{requirement:'Layout',evidence:'result.html inspected',result:'unverified'}];
+ assert.throws(()=>parseReview(JSON.stringify(pass),j),/unverified/);pass.checks[0].result='pass';
+ const [r]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);s.update(r.id,{status:'completed',response:JSON.stringify(pass)});
+ processReviews(s);assert.equal(j.quality.verdict,'pass');assert.equal(s.data.jobs.length,2);
+}));
+test('review points at actual uncommitted source workspace, not a fresh worktree',()=>fixture((s,j,dir)=>{
+ j.cwd=dir;const [r]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);assert.equal(r.reviewWorkspace,dir);assert.equal(r.workspaceKey,null);
+}));
+test('native newer turn suppresses stale pass and correction',()=>fixture((s,j)=>{
+ const [r]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);s.update(r.id,{status:'completed',response:result(j)});
+ processReviews(s,Date.now(),[{id:j.threadId,activity:{turnId:'new',state:'running'}}]);
+ assert.equal(j.quality.superseded,true);assert.equal(j.quality.correctionJobId,undefined);
+}));
+test('failed reviewers escalate and internal voice tasks do not enter the review loop',()=>fixture((s,j)=>{
+ const [r]=queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]);s.update(r.id,{status:'failed',error:'Source folder unavailable'});processReviews(s);
+ assert.match(j.quality.ownerAttention,/Source folder/);
+ s.data.jobs=[];s.data.jobs.push({...j,id:'own',title:'Background context supplied by the app: Rewster'});
+ assert.deepEqual(queueSupervisorReviews(s,[{model:'gpt-5.6-sol'}]),[]);
+}));
