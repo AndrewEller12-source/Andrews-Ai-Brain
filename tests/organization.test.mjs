@@ -5,6 +5,37 @@ import os from 'node:os';
 import path from 'node:path';
 import {Store,validateRoute} from '../core.mjs';
 import {classify,cleanName,departmentCatalog,addDepartment,migrateOrganization} from '../organization.mjs';
+test('company objectives outrank incidental equipment and possible opportunity categories',()=>{
+ for(const prompt of [
+  'Find, validate, and launch an AI-operated recurring-revenue business. I own a 3D printer. Treat available tools as resources, not requirements.',
+  'Design, validate, launch, and operate a real company. Possible categories: AI SaaS, 3D-printed products, software. Do not force a 3D-printing business because I own a printer.',
+  'I have a Bambu printer and modern coding tools. Create a profitable company with recurring revenue.',
+  'Create a business plan for a 3D-printing company.',
+ ])assert.equal(classify(prompt),'Strategy & Management',prompt);
+ assert.equal(classify('I own a 3D printer. Research customer demand.'),'Research');
+ assert.equal(classify('Available equipment: Bambu printer. Write the interview questions.'),'Writing');
+ assert.equal(classify('I own a 3D printer, build a website.'),'Web Development');
+ assert.equal(classify('Do not print an STL. Research customer demand.'),'Research');
+});
+test('real printing and other concrete assignments still create their own specialties',()=>{
+ for(const prompt of ['Print this STL on the Bambu','Design a 3D-printed enclosure','Fix the Bambu filament jam','I own a printer, print this STL','I have a Bambu but print this STL tomorrow','I own a printer and print this STL'])assert.equal(classify(prompt),'3D Printing',prompt);
+ assert.equal(classify('Build a business website'),'Web Development');
+ assert.equal(classify('Use Next.js'),'Web Development');
+ assert.equal(classify('Create a company dashboard'),'Engineering');
+ assert.equal(classify('Build an app for our printer'),'Engineering');
+ assert.equal(classify('I have a bug in my app'),'Engineering');
+ assert.equal(classify('I have a filament jam in the printer'),'3D Printing');
+});
+test('semantic routing into broad departments survives keyword-heavy refreshes',async()=>{
+ const {evolveOrganization}=await import('../organization.mjs');
+ for(const metadata of [{departmentSource:'router'},{confidence:.98,reason:'Customer research is the objective.'}]){
+  const data={settings:{},customDepartments:[],jobs:[{threadId:'research',department:'Research',prompt:'I own a 3D printer. Compare potential markets.',options:{},...metadata}],overrides:{research:'Research'}};
+  const threads=[{id:'research',title:'Compare 3D printing with other markets',department:'Research'}];
+  evolveOrganization(data,threads);evolveOrganization(data,threads);
+  assert.equal(threads[0].department,'Research');assert.equal(data.jobs[0].department,'Research');assert.equal(data.overrides.research,'Research');
+  data.manualDepartments.research='Strategy & Management';evolveOrganization(data,threads);assert.equal(threads[0].department,'Strategy & Management');
+ }
+});
 test('fresh users get no borrowed departments; Photoshop work creates only Photo Editing',t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ai-organization-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const store=new Store(path.join(dir,'state.json'));
  assert.deepEqual(departmentCatalog(store.data),[]);assert.equal(store.data.settings.workspaceName,'My workspace');

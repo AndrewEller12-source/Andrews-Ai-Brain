@@ -6,8 +6,15 @@ export function cleanName(value, kind='Department') {
  return name;
 }
 export function classify(text='', custom=[]) {
- const s=String(text).toLowerCase();
+ // This is a provisional fallback; semantic routing owns the final department.
+ // An inventory of available tools or an explicitly rejected direction is context,
+ // not a request to work in that specialty. Keep separate actionable clauses.
+ const s=String(text).toLowerCase().split(/[!?;\n]|\.(?:\s|$)|(?:,|\band\b)\s*(?=(?:please\s+)?(?:build|print|design|repair|write|create|research|compare)\b)|\bbut\b/).filter(part=>!/^\s*(?:(?:i|we)\s+(?:already\s+)?(?:own\b|have access to\b|have\s+(?:(?:a|an|some|modern|3d|bambu|coding|development)\s+){0,4}(?:printer|computers?|laptops?|tools|equipment)\b)|(?:available\s+)?(?:resources|equipment|tools)\s*:|(?:do not|don't|never)\s+(?:force|assume|choose|build|start|print)\b)/.test(part)).join('. ');
  const rule=custom.find(d=>d.keywords?.some(k=>s.includes(k.toLowerCase())));if(rule)return rule.name;
+ // Company formation and management are cross-functional objectives. Equipment,
+ // example markets and downstream deliverables must not become their department.
+ const objective=s.slice(0,1600);
+ if(/\b(?:find|choose|validate|launch|start|operate|build|create|design|plan|manage)\s+(?:(?:a|an|the|our|my|new|real|profitable|recurring[- ]revenue|ai[- ]operated|ai[- ]powered|ai[- ]native)\s+){0,6}(?:business|company|startup)\b(?!\s+(?:website|app|dashboard|logo))|\b(?:business strategy|business plan|founding investment thesis|investment committee|company strategy)\b/.test(objective))return 'Strategy & Management';
  for(const [name,pattern] of [
   ['3D Printing',/3d.?print|bambu|stl\b|filament|print.lab|prototype.{0,25}print/],
   ['Smart Home',/smart.home|home assistant|homekit|led lights|tailscale|device.control/],
@@ -63,7 +70,10 @@ export function evolveOrganization(data,threads,now=Date.now()){
   // Legacy overrides with no matching routed request may be manual assignments.
   const broad=['General','Engineering','Research','Writing','Growth','Operations','Purchasing','Finance'];
   const routedSpecialty=last?.department&&!broad.includes(last.department)?last.department:null;
-  const preserved=explicit||routedSpecialty||(override&&(!last||override!==last.department)?override:null);
+  // Preserve semantic decisions for broad departments too. Otherwise a refresh
+  // silently replaces the router's objective with a keyword from the full prompt.
+  const routedDepartment=last?.department&&(last.departmentSource==='router'||(typeof last.confidence==='number'&&last.reason))?last.department:null;
+  const preserved=explicit||routedDepartment||routedSpecialty||(override&&(!last||override!==last.department)?override:null);
   if(data.settings.autoDepartments&&!preserved){
    const titleClass=classify(t.title,data.customDepartments),specific=titleClass!=='General';
    const candidate=specific?titleClass:classify(last?.prompt||t.preview||t.title,data.customDepartments);

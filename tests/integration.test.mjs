@@ -23,6 +23,19 @@ async function fixture(t,{dir=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-http
 async function until(fn,ms=6000,diagnostic=()=>undefined){const start=Date.now();while(Date.now()-start<ms){const value=await fn();if(value)return value;await delay(20)}throw Error('Condition timed out: '+JSON.stringify(await diagnostic()))}
 const intake=(f,prompt,key)=>f.post('/api/intake',{messages:[prompt],requestKey:key});
 
+test('routed department survives refresh and owner reassignment survives restart',async t=>{
+ const f=await fixture(t);
+ const id=(await intake(f,'Build a website. I own a 3D printer.','incidental-equipment')).body.ids[0];
+ const job=await until(async()=>{const s=await f.get(),j=s.jobs.find(j=>j.id===id);return j?.status==='completed'&&s.threads.some(t=>t.id===j.threadId)?j:false});
+ // Fixture router deliberately returns broad Engineering. Refresh must preserve it.
+ assert.equal(job.department,'Engineering');
+ const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(l=>JSON.parse(l));
+ assert.ok(calls.some(c=>c.method==='thread/start'&&c.params?.ephemeral&&c.params.developerInstructions.includes('PRIMARY REQUESTED OUTCOME')));
+ assert.equal((await f.post('/api/department',{id,department:'Strategy & Management'})).status,200);
+ await f.stop();const next=await fixture(t,{dir:f.dir});
+ const s=await next.get();assert.equal(s.jobs.find(j=>j.id===id).department,'Strategy & Management');assert.equal(s.threads.find(t=>t.id===job.threadId).department,'Strategy & Management');
+});
+
 test('Rewster HTTP integration authenticates, returns exact live state and persists a worker message',async t=>{
  const f=await fixture(t),token=fs.readFileSync(path.join(f.dir,'rewster-integration.token'),'utf8').trim();
  assert.equal((await fetch(f.base+'/api/rewster/status')).status,401);
