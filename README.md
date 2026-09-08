@@ -44,7 +44,7 @@ Each department gets a manager slot. A slot is standby, not a running agent. Wit
 
 ## State and recovery
 
-Application data lives in the current user's platform application-data folder (see Quickstart). `REWSTER_DATA_DIR` overrides the location; `CODEX_HOME` selects the Codex profile. Application releases exclude state, credentials, local projects and workspace files. To use an earlier checkout's `.local` state, set `REWSTER_DATA_DIR` to that directory explicitly before starting; never distribute it.
+Application data lives in the current user's platform application-data folder (see Quickstart). `REWSTER_DATA_DIR` overrides the location; new installs use a separate empty `accounts/codex` profile under app data. `REWSTER_CODEX_HOME` explicitly selects another local profile; generic inherited `CODEX_HOME` is honored only for legacy installations. Application releases exclude state, credentials, local projects and workspace files. To use an earlier checkout's `.local` state, set `REWSTER_DATA_DIR` to that directory explicitly before starting; never distribute it.
 
 New Git work uses a detached worktree from committed HEAD. Uncommitted edits are not copied. Requests sharing a source directory are serialized. Tasks without a project receive a local workspace. Following interruption or restart, inspect and reconcile unfinished work before retrying a request that could have made changes.
 

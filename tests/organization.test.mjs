@@ -66,3 +66,12 @@ test('departments evolve from concrete work while preserving explicit user assig
 test('model-created specialty departments survive later refreshes',async()=>{
  const {evolveOrganization}=await import('../organization.mjs');const data={settings:{},customDepartments:[],jobs:[{threadId:'sound',department:'Sound Design',prompt:'Build an audio app',options:{}}],overrides:{sound:'Sound Design'}};const threads=[{id:'sound',title:'Build an audio app',department:'Sound Design'}];evolveOrganization(data,threads);assert.equal(threads[0].department,'Sound Design');
 });
+
+test('software work is classified by its deliverable and custom keywords use whole phrases',async()=>{
+ const {matchingDepartmentRule}=await import('../organization.mjs');for(const title of ['Inspect Rewsters HQ repository','Fix sales CRM commissions','Add Sales CRM activity timeline','Fix machine benchmark accuracy'])assert.equal(classify(title),'Engineering',title);
+ assert.equal(matchingDepartmentRule('Repair the email system',[{name:'AI',keywords:['ai']}]),undefined);
+ assert.equal(matchingDepartmentRule('Create an AI system',[{name:'AI',keywords:['ai']}]).name,'AI');
+});
+test('nested employees inherit department after the parent is evaluated, regardless of catalog order',async()=>{
+ const {evolveOrganization}=await import('../organization.mjs');const threads=[{id:'grandchild',parentThreadId:'child',title:'Sales copy',department:'Growth'},{id:'child',parentThreadId:'parent',title:'Sales CRM',department:'Growth'},{id:'parent',title:'Inspect Rewsters HQ repository',department:'General'}];const data={settings:{},customDepartments:[],jobs:[],overrides:{}};evolveOrganization(data,threads);assert.deepEqual(threads.map(t=>t.department),['Engineering','Engineering','Engineering']);data.manualDepartments.child='Quality';evolveOrganization(data,threads);assert.equal(threads[1].department,'Quality');assert.equal(threads[0].department,'Quality');
+});

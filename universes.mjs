@@ -27,7 +27,8 @@ export function universeScope(data,id,threads=[],projects=[]){
  const jobs=[...baseJobs,...reviewJobs];
  const scopedThreads=threads.filter(t=>threadIds.has(t.id));
  const usedPaths=new Set([...scopedThreads.map(t=>t.cwd),...jobs.flatMap(j=>[j.cwd,j.workspaceKey])].filter(Boolean));
- return {universe,jobs,threads:scopedThreads,projects:projects.filter(p=>universe.projectIds.includes(p.projectId)||usedPaths.has(p.path)),customDepartments:universe.customDepartments||[],departmentManagers:universe.departmentManagers||{}};
+ const membership=Object.fromEntries(scopedThreads.map(t=>[t.id,universe.threadIds.includes(t.id)?{source:'owner',reason:'You included this task'}:(data.jobs||[]).some(j=>j.threadId===t.id&&j.universeId===id&&!j.managerForDepartment)?{source:'request',reason:'A request was sent in this universe'}:paths.has(t.cwd)?{source:'project',reason:'You included its project'}:universe.automaticMatches?.[t.id]?{source:'discovery',...universe.automaticMatches[t.id]}:{source:'parent',parentThreadId:t.parentThreadId,reason:'Included with its parent task'}]));
+ return {universe,membership,jobs,threads:scopedThreads,projects:projects.filter(p=>universe.projectIds.includes(p.projectId)||usedPaths.has(p.path)),customDepartments:universe.customDepartments||[],departmentManagers:universe.departmentManagers||{}};
 }
 export function acceptUniverse(data,options){
  const requested=options.universeId||(!options.universeId&&options.threadId?(data.jobs||[]).findLast(j=>j.threadId===options.threadId&&j.universeId)?.universeId:null);
@@ -40,6 +41,6 @@ export function evolveUniverses(data,threads,projects,now=Date.now()){
  let changed=false;for(const u of (data.universes||[]).filter(u=>!u.deletedAt)){u.departmentManagers??={};const scope=universeScope(data,u.id,threads,projects);for(const department of departmentCatalog(scope,scope.threads))if(!u.departmentManagers[department]){u.departmentManagers[department]={department,universeId:u.id,createdAt:now,lastReviewedAt:0};changed=true;}}
  return changed;
 }
-export function universeDirectory(data,threads,projects,managers=[]){return (data.universes||[]).filter(u=>!u.deletedAt).map(u=>{const scope=universeScope(data,u.id,threads,projects);return {...u,discoveryChecks:undefined,departmentManagers:undefined,linkedThreadIds:u.threadIds,linkedProjectIds:u.projectIds,threadIds:scope.threads.map(t=>t.id),jobIds:scope.jobs.map(j=>j.id),projectIds:scope.projects.map(p=>p.projectId),departments:departmentCatalog(scope,scope.threads),managers:managers.filter(m=>m.universeId===u.id)};});}
+export function universeDirectory(data,threads,projects,managers=[]){return (data.universes||[]).filter(u=>!u.deletedAt).map(u=>{const scope=universeScope(data,u.id,threads,projects);return {...u,discoveryChecks:undefined,departmentManagers:undefined,membership:scope.membership,linkedThreadIds:u.threadIds,linkedProjectIds:u.projectIds,threadIds:scope.threads.map(t=>t.id),jobIds:scope.jobs.map(j=>j.id),projectIds:scope.projects.map(p=>p.projectId),departments:departmentCatalog(scope,scope.threads),managers:managers.filter(m=>m.universeId===u.id)};});}
 
 export function deleteUniverse(data,id,{restore=false}={}){if(!id)throw Error('All Codex cannot be deleted');const u=universeById(data,id);if(restore){if((data.universes||[]).some(other=>other.id!==id&&!other.deletedAt&&other.name.toLowerCase()===u.name.toLowerCase()))throw Error('Another universe uses this name. Rename it before restoring this one.');delete u.deletedAt;}else u.deletedAt=Date.now();u.updatedAt=Date.now();return u;}

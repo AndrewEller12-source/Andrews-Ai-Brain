@@ -6,7 +6,7 @@ export function dashboardJob(job){
 
 // One shared latest snapshot, at most one outstanding write per browser. Slow
 // readers catch up to the newest state after drain instead of being disconnected.
-export function createStateStream(snapshot,{interval=500}={}){
+export function createStateStream(snapshot,{interval=1500}={}){
  const clients=new Map();let timer=null,latest=null;
  const remove=res=>clients.delete(res);
  function write(res,client,frame){

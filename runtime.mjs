@@ -12,7 +12,33 @@ export function defaultDataDir(platform=process.platform, home=os.homedir(), env
   return path.join(env.XDG_DATA_HOME || path.join(home,'.local','share'),'rewster-command');
 }
 export const dataDir = defaultDataDir();
-export const codexHome = path.resolve(process.env.CODEX_HOME || path.join(os.homedir(),'.codex'));
+// Pin first-run behavior before state.json is created. Existing installations
+// retain their local profile; new installations never import a desktop login.
+export function selectAccountProfile(directory,home=os.homedir(),env=process.env) {
+  const marker=path.join(directory,'account-profile.json');let mode;
+  if(fs.existsSync(marker)) {
+    const saved=JSON.parse(fs.readFileSync(marker,'utf8'));
+    if(saved.version!==1||!['isolated','legacy'].includes(saved.mode))throw Error('Invalid account profile configuration; refusing an implicit account fallback.');
+    mode=saved.mode;
+  } else mode=fs.existsSync(path.join(directory,'state.json'))?'legacy':'isolated';
+  // Generic CODEX_HOME may be inherited from an unrelated launcher. Only an
+  // app-specific override opts a new installation into an external profile.
+  const override=env.REWSTER_CODEX_HOME||(mode==='legacy'?env.CODEX_HOME:undefined);
+  return {mode,marker,directory,explicit:!!override,codexHome:path.resolve(override||(mode==='isolated'?path.join(directory,'accounts','codex'):path.join(home,'.codex')))};
+}
+export function pinAccountProfile(profile) {
+  fs.mkdirSync(profile.directory,{recursive:true,mode:0o700});
+  try{fs.writeFileSync(profile.marker,JSON.stringify({version:1,mode:profile.mode})+'\n',{flag:'wx',mode:0o600});}
+  catch(error){if(error.code!=='EEXIST')throw error;const saved=JSON.parse(fs.readFileSync(profile.marker,'utf8'));if(saved.version!==1||saved.mode!==profile.mode)throw Error('Account profile changed during startup; restart before connecting.');}
+  fs.mkdirSync(profile.codexHome,{recursive:true,mode:0o700});
+}
+export const accountProfile=selectAccountProfile(dataDir);
+export const codexHome=accountProfile.codexHome;
+export function accountProcessEnvironment(profile=accountProfile) {
+  const env={CODEX_HOME:profile.codexHome};
+  if(profile.mode==='isolated'&&!profile.explicit)for(const key of ['OPENAI_API_KEY','CODEX_API_KEY','CODEX_ACCESS_TOKEN','OPENAI_ACCESS_TOKEN','OPENAI_BASE_URL','OPENAI_ORG_ID','OPENAI_ORGANIZATION','OPENAI_PROJECT_ID'])env[key]=undefined;
+  return env;
+}
 function executable(file) {try {fs.accessSync(file, process.platform==='win32'?fs.constants.F_OK:fs.constants.X_OK);return fs.statSync(file).isFile();}catch{return false;}}
 function findOnPath(name) {
   for (const dir of (process.env.PATH||'').split(path.delimiter)) {
@@ -57,7 +83,9 @@ export function resolveCodexBinary() {
 }
 export function codexCommand(args=[]) {
   const binary=resolveCodexBinary();
-  return /\.(?:m?js)$/i.test(binary)?{command:process.execPath,args:[binary,...args]}:{command:binary,args:[...args]};
+  const profileArgs=accountProfile.mode==='isolated'&&!accountProfile.explicit?['-c','cli_auth_credentials_store="file"']:[];
+  const env=accountProcessEnvironment();
+  return /\.(?:m?js)$/i.test(binary)?{command:process.execPath,args:[binary,...profileArgs,...args],env}:{command:binary,args:[...profileArgs,...args],env};
 }
 export function getRuntimeInfo() {
   let binary=null,error=null;try{binary=resolveCodexBinary();}catch(e){error=e.message;}

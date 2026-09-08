@@ -32,6 +32,8 @@ export class MediaStore{
   if(!bytes.length||bytes.length>MAX_IMAGE_BYTES)throw Error('Each image must be 12 MB or smaller.');
   if(!isHeif(bytes))return this.put(bytes,name);
   if(process.platform!=='darwin')throw Error('HEIC conversion requires the Mac app. Export this photo as JPEG or PNG and attach it again.');
+  const sourceSha256=createHash('sha256').update(bytes).digest('hex');
+  const existing=this.entries.find(e=>e.sourceSha256===sourceSha256);if(existing&&fs.existsSync(this.filename(existing.id)))return this.public(existing);
   const dir=await fs.promises.mkdtemp(path.join(os.tmpdir(),'task-manager-photo-'));let converted;
   try{
    await fs.promises.chmod(dir,0o700);
@@ -46,7 +48,8 @@ export class MediaStore{
    if(imageType(converted).mime!=='image/jpeg')throw Error('Conversion did not produce JPEG');
   }catch{throw Error('This HEIC photo could not be converted. Try exporting it as JPEG from Photos and attach it again.');}
   finally{await fs.promises.rm(dir,{recursive:true,force:true});}
-  return this.put(converted,safeName(name).replace(/\.(heic|heif)$/i,'')+'.jpg');
+  const duplicate=this.entries.find(e=>e.sourceSha256===sourceSha256);if(duplicate&&fs.existsSync(this.filename(duplicate.id)))return this.public(duplicate);
+  const result=this.put(converted,safeName(name).replace(/\.(heic|heif)$/i,'')+'.jpg');this.get(result.id).sourceSha256=sourceSha256;this.save();return result;
  }
  put(bytes,name='Image',kind='upload'){
  if(!Buffer.isBuffer(bytes))bytes=Buffer.from(bytes);if(!bytes.length||bytes.length>MAX_IMAGE_BYTES)throw Error('Each image must be 12 MB or smaller.');

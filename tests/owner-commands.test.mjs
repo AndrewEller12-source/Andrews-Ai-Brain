@@ -13,3 +13,32 @@ test('published steering receipts retain their delivery result without resending
 test('steering photos preserves validated media on the exact active turn',async()=>{const s=fixture();const r=await steerOwnerMessage(s,[],{...args,message:'',attachments:['photo']},{media:{validate(ids){assert.deepEqual(ids,['photo'])},inputs(){return [{type:'localImage',path:'/test/photo.png'}]}},bridge:{async call(method,p){assert.deepEqual(p.input,[{type:'localImage',path:'/test/photo.png'}]);return {turnId:'turn'}}}});assert.equal(r.status,'steered');assert.deepEqual(r.attachments,['photo']);});
 
 test('department manager completions stay out of the owner result feed',()=>{const data={jobs:[{id:'manager',threadId:'manager-chat',managerForDepartment:'Design'}],notifications:[{threadId:'manager-chat',jobId:'manager'},{threadId:'real-work'}]};assert.deepEqual(visibleNotifications(data).map(n=>n.threadId),['real-work']);});
+
+test('Send now consumes the queued request into the active turn exactly once',async()=>{
+ const {sendQueuedNow}=await import('../owner-commands.mjs');const s=fixture(),job={id:'waiting',status:'ready',prompt:'Use blue',options:{threadId:'task'}};s.data.jobs.push(job);let calls=0;
+ const svc={bridge:{async call(){calls++;return {turnId:'turn'}}}};
+ await sendQueuedNow(s,job,[],svc);assert.equal(job.status,'delivered');assert.equal(job.threadId,'task');assert.equal(job.turnId,'turn');await sendQueuedNow(s,job,[],svc);assert.equal(calls,1);assert.equal(s.data.jobs.length,2);
+});
+test('Send now never spawns a fallback after uncertain delivery',async()=>{
+ const {sendQueuedNow}=await import('../owner-commands.mjs');const s=fixture(),job={id:'waiting',status:'ready',prompt:'Use blue',options:{threadId:'task'}};s.data.jobs.push(job);
+ await sendQueuedNow(s,job,[],{bridge:{async call(){throw Error('Lost receipt')}}});assert.equal(job.status,'uncertain');assert.equal(job.threadId,'task');assert.equal(job.deliveryMode,'steer');
+});
+test('unobserved intended agent gets an isolated immediate assignment with original identity retained',async()=>{
+ const {sendQueuedNow}=await import('../owner-commands.mjs');const s=fixture();s.data.jobs=[];const job={id:'waiting',threadId:'task',status:'ready',workspaceKey:'/repo',prompt:'Research pricing',options:{threadId:'task'}};
+ await sendQueuedNow(s,job,[{id:'task',title:'Build app',activity:{state:'unknown'}}],{});assert.equal(job.threadId,null);assert.equal(job.workspaceKey,null);assert.equal(job.sourceThreadId,'task');assert.equal(job.deliveryMode,'new-agent');assert.match(job.prompt,/Do not duplicate/);
+});
+
+test('finished target resumes the same agent even with a stale running job',async()=>{
+ const {sendQueuedNow}=await import('../owner-commands.mjs');const s=fixture(),job={id:'followup',threadId:'task',status:'ready',prompt:'What next?',options:{threadId:'task'}};s.data.jobs.push(job);
+ await sendQueuedNow(s,job,[],{lookupActivity:async()=>({state:'completed',source:'app-server',turnId:'turn'}),bridge:{call(){throw Error('must not steer a completed turn')}}});
+ assert.equal(job.threadId,'task');assert.equal(job.status,'ready');assert.equal(job.sourceThreadId,undefined);assert.equal(job.waitReason,'Starting now.');
+});
+test('history-only completed target is refreshed before Send now chooses a new agent',async()=>{
+ const {sendQueuedNow}=await import('../owner-commands.mjs');const s=fixture();s.data.jobs=[];const job={id:'followup',threadId:'task',status:'ready',prompt:'What next?',options:{threadId:'task'}};
+ await sendQueuedNow(s,job,[{id:'task',activity:{state:'unknown'}}],{lookupActivity:async()=>({state:'completed',source:'app-server',turnId:'done'})});assert.equal(job.threadId,'task');assert.equal(job.deliveryMode,undefined);
+});
+test('a freshly observed active child accepts Send now without a dashboard job',async()=>{
+ const {sendQueuedNow}=await import('../owner-commands.mjs');const s=fixture();s.data.jobs=[];const job={id:'followup',threadId:'child',status:'ready',prompt:'Use blue',options:{threadId:'child'}};
+ await sendQueuedNow(s,job,[{id:'child',activity:{state:'running',source:'app-server',turnId:'ct'}}],{bridge:{async call(method,p){assert.equal(method,'turn/steer');assert.equal(p.expectedTurnId,'ct');return {turnId:'ct'}}}});assert.equal(job.status,'delivered');
+});
+test('active catalog without turn ID retains the dashboard exact-turn steering receipt',async()=>{const s=fixture();const r=await steerOwnerMessage(s,[{id:'task',activity:{source:'app-server',state:'running',turnId:null}}],args,{bridge:{async call(method,p){assert.equal(p.expectedTurnId,'turn');return {turnId:'turn'}}}});assert.equal(r.status,'steered');});

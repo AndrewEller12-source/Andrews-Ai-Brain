@@ -1,7 +1,12 @@
 import {universeScope} from './universes.mjs';
+import {departmentCatalog} from './organization.mjs';
 import {chooseModel} from './core.mjs';
 const pending=new Set(['queued','routing','ready','starting','running','review']);
-export function managerDirectory(data){return [...Object.values(data.departmentManagers||{}),...(data.universes||[]).filter(u=>!u.deletedAt).flatMap(u=>Object.values(u.departmentManagers||{}))].map(m=>{const job=data.jobs.find(j=>j.id===m.jobId);return {...m,universeName:(data.universes||[]).find(u=>u.id===m.universeId)?.name||null,threadId:job?.threadId||null,status:job?.status||'standby',canReview:universeScope(data,m.universeId,data.threadCatalog||[],data.projects||[]).jobs.some(j=>!j.managerForDepartment&&j.department===m.department&&j.status==='completed'),title:m.department+' manager',model:job?.model||null,lastResult:job?.response||null};});}
+export function managerDirectory(data){
+ const scopes=new Map(),jobs=new Map(data.jobs.map(j=>[j.id,j]));
+ const scopeFor=id=>{const key=id||null;if(!scopes.has(key))scopes.set(key,universeScope(data,id,data.threadCatalog||[],data.projects||[]));return scopes.get(key);};
+ return [...Object.values(data.departmentManagers||{}),...(data.universes||[]).filter(u=>!u.deletedAt).flatMap(u=>Object.values(u.departmentManagers||{}))].filter(m=>{const scope=scopeFor(m.universeId);return departmentCatalog(scope,scope.threads).includes(m.department);}).map(m=>{const job=jobs.get(m.jobId);return {...m,messages:(m.messages||[]).slice(-60),universeName:(data.universes||[]).find(u=>u.id===m.universeId)?.name||null,threadId:job?.threadId||null,status:job?.status||'standby',canReview:scopeFor(m.universeId).jobs.some(j=>!j.managerForDepartment&&j.department===m.department&&j.status==='completed'),title:m.department+' manager',model:job?.model||null,lastResult:job?.response||null};});
+}
 export function queueManagerReviews(store,models,now=Date.now(),{department,universeId,force=false}={}){
  const data=store.data;if((!data.settings.autoManagers&&!force)||!data.organizationEnabledAt)return [];
  const model=chooseModel('quick',models);if(!model)return [];

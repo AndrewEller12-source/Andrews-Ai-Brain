@@ -3,7 +3,7 @@ import AppKit
 import Sparkle
 
 @main
-struct AndrewsBrainMacApp: App {
+struct TaskManagerMacApp: App {
     @StateObject private var runtime = MacRuntime()
     @NSApplicationDelegateAdaptor(UpdateTerminationDelegate.self) private var terminationDelegate
     private let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: UpdateGate.shared, userDriverDelegate: nil)

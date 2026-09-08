@@ -55,7 +55,7 @@ export function applyDesktopPatches(state,patches){
 export function desktopActivity(state,observedAt=Date.now()){
  const turn=Object.values(state.entities||{}).sort((a,b)=>(Number(a.turnStartedAtMs)||0)-(Number(b.turnStartedAtMs)||0)).at(-1);
  const runtime=state.threadRuntimeStatus?.type,flags=state.threadRuntimeStatus?.activeFlags||[];
- const activity=runtime==='active'?(flags.length?'waiting':'running'):runtime==='idle'?(turn?.status==='completed'?'completed':turn?.status==='interrupted'?'interrupted':'idle'):runtime==='systemError'?'interrupted':'unknown';
+ const activity=runtime==='active'?(flags.some(f=>['waitingOnApproval','waitingOnUserInput'].includes(f))?'waiting':'running'):runtime==='idle'?(turn?.status==='completed'?'completed':turn?.status==='interrupted'?'interrupted':'idle'):runtime==='systemError'?'interrupted':'unknown';
  return {state:activity,source:'desktop',observedAt,turnId:turn?.turnId||null,turnStatus:turn?.status||null,startedAt:Number.isFinite(turn?.turnStartedAtMs)?turn.turnStartedAtMs:null,completedAt:turn?.status==='completed'&&turn?.turnStartedAtMs!=null&&turn?.durationMs!=null?turn.turnStartedAtMs+turn.durationMs:null,activeFlags:flags};
 }
 export class DesktopObserver extends EventEmitter{
@@ -72,7 +72,7 @@ export class DesktopObserver extends EventEmitter{
  follow(id,following=true){if(!this.connected)return;this.send({type:'broadcast',method:'thread-stream-following-changed',sourceClientId:this.clientId,version:1,params:{conversationId:id,hostId:'local',following}});this.lastSubscribe.set(id,Date.now());}
  setThreads(ids){const next=new Set(ids);for(const id of this.wanted)if(!next.has(id)){this.follow(id,false);this.records.delete(id);this.lastSubscribe.delete(id);}this.wanted=next;this.followAll();}
  requestSnapshot(id){if(Date.now()-(this.lastSubscribe.get(id)||0)>500){this.follow(id);return;}if(this.resyncTimers.has(id))return;const timer=setTimeout(()=>{this.resyncTimers.delete(id);if(this.connected&&this.wanted.has(id)&&!this.records.has(id))this.follow(id)},550);timer.unref();this.resyncTimers.set(id,timer);}
- followAll(){if(!this.connected)return;for(const id of this.wanted)if(!this.lastSubscribe.has(id)||Date.now()-this.lastSubscribe.get(id)>30000)this.follow(id);}
+ followAll(){if(!this.connected)return;for(const id of this.wanted)if(!this.records.has(id)&&(!this.lastSubscribe.has(id)||Date.now()-this.lastSubscribe.get(id)>120000))this.follow(id);}
  receive(m){
   if(m.type==='response')this.emit('message',m);
   if(m.type==='response'&&m.method==='initialize'&&m.resultType==='success'){this.clientId=m.result.clientId;this.connected=true;this.error='';this.socket?.setTimeout(0);this.followAll();this.emit('change');return;}

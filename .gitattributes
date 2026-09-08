@@ -1,0 +1,3 @@
+# Internal owner-workflow/research notes stay local; never ship them in source ZIPs.
+REWSTER-INTEGRATION.md export-ignore
+RESEARCH.md export-ignore

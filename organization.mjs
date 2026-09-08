@@ -10,7 +10,7 @@ export function classify(text='', custom=[]) {
  // An inventory of available tools or an explicitly rejected direction is context,
  // not a request to work in that specialty. Keep separate actionable clauses.
  const s=String(text).toLowerCase().split(/[!?;\n]|\.(?:\s|$)|(?:,|\band\b)\s*(?=(?:please\s+)?(?:build|print|design|repair|write|create|research|compare)\b)|\bbut\b/).filter(part=>!/^\s*(?:(?:i|we)\s+(?:already\s+)?(?:own\b|have access to\b|have\s+(?:(?:a|an|some|modern|3d|bambu|coding|development)\s+){0,4}(?:printer|computers?|laptops?|tools|equipment)\b)|(?:available\s+)?(?:resources|equipment|tools)\s*:|(?:do not|don't|never)\s+(?:force|assume|choose|build|start|print)\b)/.test(part)).join('. ');
- const rule=custom.find(d=>d.keywords?.some(k=>s.includes(k.toLowerCase())));if(rule)return rule.name;
+ const rule=matchingDepartmentRule(s,custom);if(rule)return rule.name;
  // Company formation and management are cross-functional objectives. Equipment,
  // example markets and downstream deliverables must not become their department.
  const objective=s.slice(0,1600);
@@ -24,6 +24,7 @@ export function classify(text='', custom=[]) {
   ['Design',/illustrator|figma|graphic design|logo design|branding|typography/],
   ['Video Production',/video edit|premiere|davinci|after effects|film edit/],
   ['Purchasing',/purchas|supplier|restock|inventory|stockroom|sortly/],
+  ['Engineering',/\b(?:fix|debug|implement|code|harden|enhance|improve|add|repair|audit|inspect)\b.{0,80}\b(?:software|repository|repo|crm|api|dashboard|app|workflow|search|accuracy|commission|usability|diagnostic|integration)|\b(?:engineering manager|lead architect)\b/],
   ['Growth',/content|filming|video|marketing|social|lead |referral|tiktok|instagram/],
   ['Finance',/invoice|billing|margin|cash flow|finance|reconcil|accounting/],
   ['Engineering',/build|code|bug|\bapi\b|\bapp\b|sdk|dashboard|software|test|deploy|integration/],
@@ -48,6 +49,7 @@ export function addDepartment(data,input,threads=[]) {
  if(keywords.length>20||keywords.some(k=>k.length>60))throw Error('Use up to 20 keywords, each under 60 characters');
  const entry={name,keywords};const at=data.customDepartments.findIndex(d=>d.name.toLowerCase()===name.toLowerCase());
  if(at<0){if(data.customDepartments.length>=100)throw Error('Maximum of 100 custom departments');data.customDepartments.push(entry)}else data.customDepartments[at]=entry;
+ data.departmentManagers??={};data.departmentManagers[name]??={department:name,createdAt:Date.now(),lastReviewedAt:0,...(data.id?{universeId:data.id}:{})};
  return entry;
 }
 export function migrateOrganization(data){
@@ -63,7 +65,8 @@ export function evolveOrganization(data,threads,now=Date.now()){
  data.settings.autoDepartments??=true;data.settings.autoManagers??=true;
  data.organizationEnabledAt??=now;data.departmentManagers??={};data.manualDepartments??={};
  let changed=false;
- for(const t of threads){
+ const byId=new Map(threads.map(t=>[t.id,t]));const depth=t=>{let n=0,seen=new Set();while(t?.parentThreadId&&!seen.has(t.id)){seen.add(t.id);t=byId.get(t.parentThreadId);n++;}return n;};
+ for(const t of [...threads].sort((a,b)=>depth(a)-depth(b))){
   const jobs=(data.jobs||[]).filter(j=>j.threadId===t.id&&!j.managerForDepartment),last=jobs.at(-1);
   const explicit=data.manualDepartments[t.id]||last?.options?.department;
   const override=data.overrides?.[t.id];
@@ -73,16 +76,19 @@ export function evolveOrganization(data,threads,now=Date.now()){
   // Preserve semantic decisions for broad departments too. Otherwise a refresh
   // silently replaces the router's objective with a keyword from the full prompt.
   const routedDepartment=last?.department&&(last.departmentSource==='router'||(typeof last.confidence==='number'&&last.reason))?last.department:null;
-  const preserved=explicit||routedDepartment||routedSpecialty||(override&&(!last||override!==last.department)?override:null);
+  const inherited=t.parentThreadId&&!explicit?threads.find(p=>p.id===t.parentThreadId)?.department:null;
+  const preserved=explicit||inherited||routedDepartment||routedSpecialty||(override&&(!last||override!==last.department)?override:null);
   if(data.settings.autoDepartments&&!preserved){
    const titleClass=classify(t.title,data.customDepartments),specific=titleClass!=='General';
    const candidate=specific?titleClass:classify(last?.prompt||t.preview||t.title,data.customDepartments);
    const name=candidate==='General'?t.department:candidate;
-   if(name&&name!==t.department){t.department=name;changed=true;for(const j of jobs)if(!j.options?.department)j.department=name;if(override)data.overrides[t.id]=name;}
-  }else if(preserved)t.department=preserved;
+   if(name&&name!==t.department){t.department=name;t.departmentReason='Classified from the primary task title or request';changed=true;for(const j of jobs)if(!j.options?.department)j.department=name;if(override)data.overrides[t.id]=name;}
+  }else if(preserved){t.department=preserved;t.departmentReason=explicit?'Assigned by you':inherited?'Follows its parent task':routedDepartment?'Semantic routing: '+(last.reason||'primary requested outcome'):'Saved assignment';}
   if(t.department&&!data.departmentManagers[t.department]&&!['__proto__','constructor','prototype'].includes(t.department)){
    data.departmentManagers[t.department]={department:t.department,createdAt:now,lastReviewedAt:0};changed=true;
   }
  }
  return changed;
 }
+
+export function matchingDepartmentRule(text,custom=[]){const words=String(text).toLowerCase().match(/[\p{L}\p{N}]+/gu)||[];const haystack=' '+words.join(' ')+' ';return custom.find(d=>d.keywords?.some(k=>{const phrase=(k.toLowerCase().match(/[\p{L}\p{N}]+/gu)||[]).join(' ');return phrase&&haystack.includes(' '+phrase+' ')}));}

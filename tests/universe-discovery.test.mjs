@@ -1,8 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {UniverseDiscovery,discoveryProfile,validateDiscovery} from '../universe-discovery.mjs';import {saveUniverse,universeScope} from '../universes.mjs';
-function setup(classify){let now=100000,calls=0;const data={jobs:[],customDepartments:[]},u=saveUniverse(data,{name:'Vending Business'});let threads=[{id:'nayax',title:'Reconcile Nayax settlements',preview:'Card-reader settlements for our snack machines',department:'Finance'},{id:'design',title:'Retouch wedding photos',preview:'Photoshop edits',department:'Photo Editing'}];const worker=new UniverseDiscovery({store:{data,save(){}},threads:()=>threads,now:()=>now,ready:()=>true,changed(){},classify:async input=>{calls++;return classify(input)}});return {data,u,worker,get calls(){return calls},threads:()=>threads,setThreads:t=>threads=t,advance:()=>now+=65000};}
+function setup(classify){let now=100000,calls=0;const data={jobs:[],customDepartments:[]},u=saveUniverse(data,{name:'Vending Business'});u.createdAt=1;let threads=[{id:'nayax',createdAt:2,title:'Reconcile Nayax settlements',preview:'Card-reader settlements for our snack machines',department:'Finance'},{id:'design',createdAt:2,title:'Retouch wedding photos',preview:'Photoshop edits',department:'Photo Editing'}];const worker=new UniverseDiscovery({store:{data,save(){}},threads:()=>threads,now:()=>now,ready:()=>true,changed(){},classify:async input=>{calls++;return classify(input)}});return {data,u,worker,get calls(){return calls},threads:()=>threads,setThreads:t=>threads=t,advance:()=>now+=65000};}
 const decisions=input=>({decisions:input.tasks.map(t=>({id:t.id,match:t.id==='nayax',confidence:t.id==='nayax'?.97:0,reason:'Settlement reconciliation for vending machines',evidence:t.id==='nayax'?t.title:''}))});
-test('semantic discovery includes related native history, preserves All Codex, caches negatives and follows children',async()=>{
+test('semantic discovery includes related new work, preserves All Codex, caches negatives and follows children',async()=>{
  const f=setup(decisions);await f.worker.tick();assert.ok(f.u.automaticMatches.nayax);assert.equal(f.u.automaticMatches.design,undefined);assert.equal(f.data.jobs.length,0);assert.equal(f.threads().length,2);
  assert.deepEqual(universeScope(f.data,f.u.id,f.threads()).threads.map(t=>t.id),['nayax']);f.advance();await f.worker.tick();assert.equal(f.calls,1);
  f.setThreads([...f.threads(),{id:'child',parentThreadId:'nayax',title:'Check totals',department:'Finance'}]);assert.equal(universeScope(f.data,f.u.id,f.threads()).threads.length,2);
@@ -22,7 +22,7 @@ test('ungrounded, unknown, duplicate and incomplete matches are rejected, and am
  const f=setup(input=>({decisions:decisions(input).decisions.map(r=>({...r,confidence:.6}))}));await f.worker.tick();assert.deepEqual(f.u.automaticMatches,{});
 });
 test('a model failure leaves current membership intact and retries with backoff',async()=>{
- const f=setup(()=>{throw Error('Temporarily unavailable')});f.u.discoveryPolicy=2;f.u.automaticMatches={nayax:{reason:'Previously confirmed'}};await f.worker.tick();assert.equal(f.u.discovery.status,'retrying');assert.ok(f.u.automaticMatches.nayax);await f.worker.tick();assert.equal(f.calls,1);f.advance();await f.worker.tick();assert.equal(f.calls,2);
+ const f=setup(()=>{throw Error('Temporarily unavailable')});f.u.discoveryPolicy=3;f.u.automaticMatches={nayax:{reason:'Previously confirmed'}};await f.worker.tick();assert.equal(f.u.discovery.status,'retrying');assert.ok(f.u.automaticMatches.nayax);await f.worker.tick();assert.equal(f.calls,1);f.advance();await f.worker.tick();assert.equal(f.calls,2);
 });
 test('structured discovery schema requires a decision for every exact task ID',async()=>{
  const {discoveryOutputSchema,normalizeDiscoveryOutput}=await import('../universe-discovery.mjs');const tasks=[{id:'first',title:'Vending stock',excerpt:''},{id:'second',title:'Wedding photos',excerpt:''}];const schema=discoveryOutputSchema(tasks);assert.deepEqual(schema.properties.decisions.required,['first','second']);assert.equal(schema.properties.decisions.additionalProperties,false);
@@ -31,7 +31,7 @@ test('structured discovery schema requires a decision for every exact task ID',a
 });
 test('shared owner biographies and wrapper payloads do not become business evidence',async()=>{
  const {discoveryCandidates}=await import('../universe-discovery.mjs');const data={jobs:[]},u=saveUniverse(data,{name:'Vending Business'});
- const rows=discoveryCandidates(data,u,[{id:'setup',title:'Background context supplied by the app: Andrew operates vending',preview:'Background context supplied by the app: All his assistants know about vending',lastActivity:'Playing your music now.'}]);assert.equal(rows[0].title,'');assert.equal(rows[0].excerpt,'Playing your music now.');
+ const rows=discoveryCandidates(data,u,[{id:'setup',title:'Background context supplied by the app: Example user operates a studio',preview:'Background context supplied by the app: The assistants know about the studio',lastActivity:'Playing your music now.'}]);assert.equal(rows[0].title,'');assert.equal(rows[0].excerpt,'Playing your music now.');
 });
 
 test('generic AI business and revenue targets do not import unrelated history or call a model',async()=>{
@@ -44,3 +44,5 @@ test('old automatic review tasks cannot keep an unrelated department alive',()=>
 test('internal reviews cannot be imported as unrelated business work',async()=>{
  const {discoveryCandidates}=await import('../universe-discovery.mjs');const f=setup(decisions);f.data.jobs.push({id:'internal',threadId:'review',managerForDepartment:'Growth'});f.setThreads([...f.threads(),{id:'review',title:'Review new AI business strategy'}]);assert.deepEqual(discoveryCandidates(f.data,f.u,f.threads()).map(t=>t.id),['nayax','design']);
 });
+
+test('older revenue candidates remain suggestions and cannot import their vending descendants',async()=>{const f=setup(decisions);f.u.createdAt=100;f.setThreads([...f.threads(),{id:'child',parentThreadId:'nayax',title:'Vending sales',department:'Growth'}]);await f.worker.tick();assert.ok(f.u.discoverySuggestions.nayax);assert.equal(f.u.automaticMatches.nayax,undefined);assert.equal(universeScope(f.data,f.u.id,f.threads()).threads.length,0);f.u.threadIds.push('nayax');assert.equal(universeScope(f.data,f.u.id,f.threads()).threads.length,2);});

@@ -10,7 +10,7 @@ const directory=path.join(dataDir,'phone-access');
 fs.mkdirSync(directory,{recursive:true,mode:0o700});fs.chmodSync(directory,0o700);
 const keyFile=path.join(directory,'server-key.pem'),certFile=path.join(directory,'server-cert.pem'),tokenFile=path.join(directory,'pairing-token');
 if(!fs.existsSync(keyFile)||!fs.existsSync(certFile)){
-  execFileSync('/usr/bin/openssl',['req','-x509','-newkey','rsa:2048','-sha256','-nodes','-keyout',keyFile,'-out',certFile,'-days','3650','-subj','/CN=Andrews Ai Brain'],{stdio:'ignore'});
+  execFileSync('/usr/bin/openssl',['req','-x509','-newkey','rsa:2048','-sha256','-nodes','-keyout',keyFile,'-out',certFile,'-days','3650','-subj','/CN=Ai Task Manager'],{stdio:'ignore'});
 }
 for(const file of [keyFile,certFile])fs.chmodSync(file,0o600);
 if(process.argv.includes('--rotate')||!fs.existsSync(tokenFile))fs.writeFileSync(tokenFile,randomBytes(32).toString('base64url'),{mode:0o600});

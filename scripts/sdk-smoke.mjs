@@ -6,9 +6,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import {accountProcessEnvironment,resolveCodexBinary,accountProfile,pinAccountProfile} from '../runtime.mjs';
 const workspace=fs.mkdtempSync(path.join(os.tmpdir(),'rewster-sdk-smoke-'));
 const options={workingDirectory:workspace,skipGitRepoCheck:true,sandboxMode:'workspace-write',approvalPolicy:'never',networkAccessEnabled:false,webSearchMode:'disabled',...(process.env.SDK_TEST_MODEL?{model:process.env.SDK_TEST_MODEL}:{})};
-const codex=new Codex({...(process.env.CODEX_BIN?{codexPathOverride:process.env.CODEX_BIN}:{})});
+const sdkEnv=Object.fromEntries(Object.entries({...process.env,...accountProcessEnvironment()}).filter(([,value])=>typeof value==='string'));
+pinAccountProfile(accountProfile);
+const codex=new Codex({codexPathOverride:resolveCodexBinary(),env:sdkEnv,...(accountProfile.mode==='isolated'&&!accountProfile.explicit?{config:{cli_auth_credentials_store:'file'}}:{})});
 const thread=codex.startThread(options);
 const result={checkedAt:new Date().toISOString(),sdk:'@openai/codex-sdk',workspace,model:process.env.SDK_TEST_MODEL||'local Codex default',checks:[]};
 async function run(t,prompt){

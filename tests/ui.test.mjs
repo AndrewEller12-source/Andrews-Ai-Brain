@@ -38,8 +38,16 @@ test('fresh account shows sign-in gate without starting OAuth automatically',asy
 test('login link is explicit and never opens a tab automatically',async()=>{
  const state=snapshot({account:{status:'signedOut'}});const a=app(state,async()=>({authUrl:'https://auth.openai.com/authorize?state=test',loginId:'login'}));a.$('#start-login').click();await tick();assert.equal(a.calls.length,1);assert.equal(a.calls[0].url,'/api/auth/login');assert.match(a.$('#login-link').href,/https:\/\/auth.openai.com/);a.close();
 });
+test('new users can create their own provider account without auto-login or collecting a password',()=>{
+ const a=app(snapshot({account:{status:'signedOut'}}));try{const link=a.$('#create-provider-account');assert.equal(link.href,'https://chatgpt.com/');assert.equal(link.target,'_blank');assert.match(link.rel,/noopener/);assert.equal(a.$('input[type=password]'),null);assert.equal(a.calls.length,0);}finally{a.close()}
+});
+test('supported provider login hosts work and lookalike or credential-bearing URLs stay blocked',()=>{
+ for(const [url,allowed] of [['https://login.openai.com/authorize',true],['https://chatgpt.com/auth',true],['https://auth.openai.com.evil.example/authorize',false],['https://someone@auth.openai.com/authorize',false],['https://auth.openai.com:8443/authorize',false]]){
+  const a=app(snapshot({account:{status:'signedOut'},login:{status:'pending',authUrl:url}}));try{assert.equal(!!a.$('#login-link'),allowed,url);}finally{a.close()}
+ }
+});
 test('signed in identity is portable and missing CLI has an actionable setup gate',()=>{
- const a=app();assert.equal(a.$('#send').disabled,false);assert.equal(a.$('#account-name').textContent,'trey@example.com');assert.doesNotMatch(a.w.document.body.textContent,/Andrew Eller/);a.update(snapshot({connected:false,account:{status:'unavailable'},capabilities:{cliAvailable:false}}));assert.match(a.$('#setup').textContent,/Install the Codex engine/);assert.equal(a.$('#send').disabled,true);a.close();
+ const a=app();assert.equal(a.$('#send').disabled,false);assert.equal(a.$('#account-name').textContent,'trey@example.com');a.update(snapshot({connected:false,account:{status:'unavailable'},capabilities:{cliAvailable:false}}));assert.match(a.$('#setup').textContent,/Install the Codex engine/);assert.equal(a.$('#send').disabled,true);a.close();
 });
 test('failed stream and HTTP connection disable intake until fresh state arrives',async()=>{
  const a=app(snapshot(),async()=>{throw Error('Offline')});a.events.onerror();await tick();assert.equal(a.$('#send').disabled,true);assert.match(a.$('#setup').textContent,/Reconnecting/);a.update(snapshot());assert.equal(a.$('#send').disabled,false);a.close();
@@ -307,9 +315,9 @@ test('large department maps paginate readable groups and keep every agent reacha
  assert.equal(a.w.document.querySelectorAll('.project-node').length,4);assert.equal(a.w.document.querySelectorAll('.task-node').length,4);assert.match(a.$('.map-pages').textContent,/1 \/ 14/);a.$('#map-next').click();assert.match(a.$('.map-pages').textContent,/2 \/ 14/);assert.ok(parseInt(a.$('#zoom-value').textContent)>=65);
  a.$('#universe-size').click();assert.equal(a.w.document.body.classList.contains('universe-expanded'),false);a.close();
 });
-test('manager settings expose real task identity without counting standby slots as live',async()=>{
+test('manager settings expose persistent chat and monitoring controls',async()=>{
  const jobs=[{id:'manager-job',threadId:'manager-thread',managerForDepartment:'Design',title:'Design manager review',status:'running',department:'Design'}];const a=app(snapshot({departments:['Design'],jobs,managers:[{department:'Design',title:'Design manager',jobId:'manager-job',threadId:'manager-thread',status:'running',model:'gpt-5.4'}]}));
- a.$('[data-view="settings"]').click();assert.match(a.$('.manager-directory').textContent,/Open manager task/);const toggle=a.$('[data-organization-setting="autoManagers"]');toggle.checked=false;toggle.dispatchEvent(new a.w.Event('change'));await tick();assert.deepEqual(a.calls.find(c=>c.url==='/api/settings').body,{autoManagers:false});a.close();
+ a.$('[data-view="settings"]').click();assert.match(a.$('.manager-directory').textContent,/Chat with manager/);const toggle=a.$('[data-organization-setting="autoManagers"]');toggle.checked=false;toggle.dispatchEvent(new a.w.Event('change'));await tick();assert.deepEqual(a.calls.find(c=>c.url==='/api/settings').body,{autoManagers:false});a.close();
 });
 
 test('universe zoom counter-scales node visuals and reveals labels progressively without changing task identity',()=>{
@@ -424,4 +432,12 @@ test('app preview survives streaming updates, hides without losing its frame, an
 });
 test('names appear on agents and can be found without knowing the task title',async()=>{
  const a=app(snapshot({threads:[{...chatThread,agentName:'Athena'}]}));try{a.$('#graph-search').value='athena';a.$('#graph-search').dispatchEvent(new a.w.Event('input'));assert.equal(a.w.document.querySelectorAll('.task-node').length,1);assert.match(a.$('.task-node').textContent,/Athena/);a.w.openConversation('design');await tick();assert.match(a.$('#agent-name').textContent,/Athena/);}finally{a.close()}
+});
+
+test('department manager opens a scoped chat with employees and saved drafts',async()=>{
+ const state=snapshot({departments:['Growth'],managers:[{department:'Growth',messages:[],monitoring:true}],threads:[{id:'athena',agentName:'Athena',title:'Video work',department:'Growth',activity:{state:'running',source:'app-server'}}]});
+ const a=app(state);try{a.w.openManagerChat('Growth');assert.match(a.$('.department-office').textContent,/Athena/);assert.equal(a.$('.composer').hidden,true);assert.ok(a.$('.employee-live'));a.$('#manager-message').value='Any updates?';a.$('#manager-message').dispatchEvent(new a.w.Event('input'));a.$('#manager-back').click();a.w.openManagerChat('Growth');assert.equal(a.$('#manager-message').value,'Any updates?');a.$('#manager-chat-form').dispatchEvent(new a.w.Event('submit',{cancelable:true}));await tick();const sent=a.calls.find(c=>c.url==='/api/managers/chat');assert.equal(sent.body.department,'Growth');assert.equal(sent.body.universeId,null);assert.equal(sent.body.message,'Any updates?');assert.ok(sent.body.requestKey);}finally{a.close()}
+});
+test('recent unconfirmed child activity animates without inflating confirmed live counts',()=>{
+ const a=app(snapshot({threads:[{id:'child',title:'Active file writes',department:'Engineering',parentThreadId:'parent',recentActivity:{at:Date.now()},activity:{state:'unknown',source:'events'}}]}));try{assert.ok(a.$('.recent-session-activity'));assert.equal(a.$('.node-running'),null);assert.equal(a.$('#metrics .metric-value strong').textContent,'0');}finally{a.close()}
 });

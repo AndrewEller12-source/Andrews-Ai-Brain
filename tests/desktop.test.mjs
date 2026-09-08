@@ -83,3 +83,6 @@ test('stream decoder rejects invalid declared lengths without buffering their bo
 test('pending desktop questions survive compaction and resolve without exposing unrelated request bodies',()=>{
  const q={id:42,method:'item/tool/requestUserInput',params:{threadId:'task',turnId:'turn-1',questions:[{id:'color',question:'Which color?',options:[{label:'Blue',description:'Ocean blue'}]}]}},s=compactDesktopState({...state(),requests:[{id:1,method:'other',params:{private:'secret'}},q]});assert.equal(s.requests[0],null);assert.deepEqual(JSON.parse(JSON.stringify(s.requests[1].params.questions)),q.params.questions);applyDesktopPatches(s,[{op:'remove',path:['requests',0]}]);assert.equal(s.requests[0].id,42);applyDesktopPatches(s,[{op:'replace',path:['requests'],value:[]}]);assert.deepEqual(s.requests,[]);
 });
+
+test('healthy subscribed threads receive patches without repeated giant snapshots',()=>{const o=observer();o.receive(snapshot());let follows=0;o.follow=()=>follows++;o.lastSubscribe.set('task',0);o.followAll();assert.equal(follows,0);o.records.clear();o.followAll();assert.equal(follows,1);});
+test('waiting on employees is not confused with needing owner input',()=>{const s=compactDesktopState(state());s.threadRuntimeStatus.activeFlags=['waitingOnSubagents'];assert.equal(desktopActivity(s).state,'running');});

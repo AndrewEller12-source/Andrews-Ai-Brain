@@ -5,7 +5,7 @@ This is a local Codex workspace with a shared inbox, department map, durable tas
 1. In **Apple menu → About This Mac**, check whether the Mac lists an Apple M-series chip or an Intel processor.
 2. Extract **Ai-Task-Manager-0.10.0-macOS-arm64.zip** for Apple Silicon, or **Ai-Task-Manager-0.10.0-macOS-x64.zip** for Intel. Keep the entire extracted folder together. The Mac packages include Node.js, the Codex CLI and SDK; no Node or npm installation is needed.
 3. Double-click **Start Rewster Command.command**. It starts the local app and opens the dashboard. macOS may ask permission to open the downloaded unsigned launcher. This is a local app folder, not a signed native installer.
-4. Use the dashboard's account sign-in to connect your ChatGPT account. If you are already signed in to Codex locally, the dashboard uses that account. Complete authentication only on the official login page. Never paste a password or token into a task.
+4. Use the dashboard's account sign-in to connect your ChatGPT account. New installations use a separate empty Codex profile; they do not automatically import another local Codex login or its history. Existing Task Manager installations retain their prior local profile. Complete authentication only on the official login page. Never paste a password or token into a task.
 5. Add a local project folder or send a simple request without one. Ask `What is 17 times 23?` first, then open the resulting task and send a follow-up.
 
 Model execution and account sign-in need internet access. Usage and model access depend on your account. Git is needed for Git project worktrees. Giving another person your `127.0.0.1` link does not give them the app.
@@ -37,7 +37,7 @@ The release contains application files only. It includes no sender credentials, 
 - Windows: `%LOCALAPPDATA%\Rewster Command`
 - Linux: `$XDG_DATA_HOME/rewster-command` or `~/.local/share/rewster-command`
 
-Codex manages its own login and history in its configured home, normally `~/.codex`. `REWSTER_DATA_DIR` can override app data and `CODEX_HOME` can select a separate Codex profile. Never send these folders when sharing the app. Signing out affects the shared local Codex account as well.
+For new installations, Task Manager keeps its Codex login and history in `accounts/codex` inside its own local app-data folder. Existing installations retain their previous Codex profile, normally `~/.codex`. `REWSTER_DATA_DIR` can override app data and `REWSTER_CODEX_HOME` can explicitly select another local Codex profile. New installs ignore a generic inherited `CODEX_HOME`. Never send these folders when sharing the app. When using a legacy or explicitly shared profile, signing out affects other clients using that profile.
 
 ## If it does not start
 

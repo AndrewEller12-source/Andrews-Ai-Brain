@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct AndrewsBrainPhoneApp: App {
+struct TaskManagerPhoneApp: App {
     var body: some Scene { WindowGroup { PhoneDashboardView() } }
 }
 

@@ -230,8 +230,9 @@ test('history discovers archived chats and preserves the catalog during restart'
 });
 
 
-test('automatic manager reviews run as real read-only tasks and never recurse',async t=>{
+test('explicit legacy manager reviews remain read-only and never recurse',async t=>{
  const f=await fixture(t,{autoManagers:true});const id=(await intake(f,'Build a fixture dashboard','manager-source')).body.ids[0];
+ await until(async()=>{const s=await f.get();return s.jobs.find(j=>j.id===id&&j.status==='completed')});assert.equal((await f.post('/api/managers/review',{department:'Engineering'})).status,200);
  const job=await until(async()=>{const s=await f.get();return s.jobs.find(j=>j.sourceJobId===id&&j.status==='completed')},12000,()=>f.get());
  const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse);
  const name=calls.find(c=>c.method==='thread/name/set'&&c.params.threadId===job.threadId);
@@ -255,14 +256,14 @@ test('universe HTTP lifecycle persists empty worlds and scopes router catalogs a
  await f.post('/api/settings',{paused:true});await f.stop();const next=await fixture(t,{dir:f.dir});assert.equal((await next.get()).universes[0].id,universeId);
 });
 
-test('creating a universe automatically discovers old work and later new native tasks without starting worker jobs',async t=>{
+test('universe discovery suggests old work and includes new assigned tasks without starting worker jobs',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'discovery-http-')),catalogFile=path.join(dir,'catalog.json');
  const catalog=[{id:'old-payment',name:'Reconcile Nayax settlements',preview:'Card-reader settlements for vending machines',cwd:dir,path:'',updatedAt:1},{id:'photo',name:'Retouch wedding photos',preview:'Photoshop work',cwd:dir,path:'',updatedAt:1}];fs.writeFileSync(catalogFile,JSON.stringify(catalog));
  const f=await fixture(t,{dir,catalogFile});const created=await f.post('/api/universes',{name:'Vending Business'});assert.equal(created.status,200);
- let u=await until(async()=>{const s=await f.get();return s.universes.find(u=>u.id===created.body.id&&u.automaticMatches?.['old-payment'])},10000,()=>f.get());
- assert.deepEqual(u.threadIds,['old-payment']);assert.match(u.automaticMatches['old-payment'].reason,/Vending/);assert.equal((await f.get()).jobs.length,0);assert.equal((await f.get()).threads.length,2);
- catalog.push({id:'new-route',name:'Plan vending service routes',preview:'Visit machine locations',cwd:dir,path:'',updatedAt:2});fs.writeFileSync(catalogFile,JSON.stringify(catalog));
- u=await until(async()=>{const s=await f.get();return s.universes.find(u=>u.automaticMatches?.['new-route'])},15000,()=>f.get());assert.equal(u.threadIds.length,2);
+ let u=await until(async()=>{const s=await f.get();return s.universes.find(u=>u.id===created.body.id&&u.discoverySuggestions?.['old-payment'])},10000,()=>f.get());
+ assert.deepEqual(u.threadIds,[]);assert.match(u.discoverySuggestions['old-payment'].reason,/Vending/);assert.equal((await f.get()).jobs.length,0);assert.equal((await f.get()).threads.length,2);
+ catalog.push({id:'new-route',createdAt:Date.now(),name:'Plan vending service routes',preview:'Visit machine locations',cwd:dir,path:'',updatedAt:2});fs.writeFileSync(catalogFile,JSON.stringify(catalog));
+ u=await until(async()=>{const s=await f.get();return s.universes.find(u=>u.automaticMatches?.['new-route'])},15000,()=>f.get());assert.equal(u.threadIds.length,1);
  await f.post('/api/universes',{id:u.id,name:u.name,autoDiscover:true,excludedThreadIds:['old-payment']});u=(await f.get()).universes[0];assert.equal(u.threadIds.includes('old-payment'),false);assert.equal(u.threadIds.includes('new-route'),true);
  assert.equal((await f.get()).jobs.length,0);
 });
@@ -333,4 +334,28 @@ test('agent names persist after restart and named coordination targets the origi
  const token=fs.readFileSync(path.join(f.dir,'rewster-integration.token'),'utf8').trim(),headers={Authorization:'Bearer '+token};const status=await(await fetch(next.base+'/api/rewster/status',{headers})).json();assert.equal(status.agents.find(a=>a.id===job.threadId).agentName,'Athena');
  const message=await next.post('/api/rewster/message',{agentName:'Athena',message:'Finish the research summary',reason:'Owner follow-up',requestKey:'named-follow-up'},headers);assert.equal(message.status,202,JSON.stringify(message.body));assert.equal(message.body.threadId,job.threadId);
  const policy=(await fetch(next.base+'/')).headers.get('content-security-policy');assert.match(policy,/frame-src http:\/\/127.0.0.1:\*/);
+});
+
+test('send now delivers queued followup to the existing active turn without another start',async t=>{
+ const f=await fixture(t);const initial=(await intake(f,'Work [hold]','immediate-source')).body.ids[0];const active=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===initial);return j?.status==='running'?j:false});
+ const queued=(await f.post('/api/intake',{messages:['Use the new specification'],requestKey:'immediate-followup',options:{threadId:active.threadId}})).body.ids[0];
+ const r=await f.post('/api/send-now',{id:queued});assert.ok([200,202].includes(r.status));const delivered=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===queued);return j?.status==='delivered'?j:false});assert.equal(delivered.threadId,active.threadId);assert.equal(delivered.turnId,active.turnId);
+ const duplicate=await f.post('/api/send-now',{id:queued});assert.equal(duplicate.body.status,'delivered');const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse);assert.equal(calls.filter(c=>c.method==='turn/steer').length,1);
+});
+test('manager status chat uses a tool-free model and creates no execution job',async t=>{
+ const f=await fixture(t);await intake(f,'Create a logo','manager-roster-source');await until(async()=>{const s=await f.get();return s.jobs.some(j=>j.status==='completed')});
+ const r=await f.post('/api/managers/chat',{department:'Engineering',message:'Any updates?',requestKey:'manager-http-question'});assert.equal(r.status,202);
+ const manager=await until(async()=>{const m=(await f.get()).managers.find(m=>m.department==='Engineering');return m?.messages?.some(r=>r.role==='assistant')?m:false});assert.match(manager.messages.at(-1).text,/Department update/);assert.equal((await f.get()).jobs.length,1);
+ const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse),start=calls.find(c=>c.method==='thread/start'&&c.params.developerInstructions?.includes('department manager inside'));
+ assert.equal(start.params.ephemeral,true);assert.equal(start.params.sandbox,'read-only');assert.equal(start.params.approvalPolicy,'never');
+});
+
+test('a new question to a completed agent skips routing and starts exactly one followup',async t=>{
+ const f=await fixture(t);const id=(await intake(f,'Say hello','finished-agent-initial')).body.ids[0];
+ const initial=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===id);return j?.status==='completed'?j:false});
+ const before=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse).filter(c=>c.method==='thread/start'&&c.params.ephemeral).length;
+ const sent=await f.post('/api/intake',{messages:['Explain the result'],requestKey:'finished-agent-followup',options:{threadId:initial.threadId}});
+ assert.equal(sent.status,202);const followup=await until(async()=>{const j=(await f.get()).jobs.find(j=>j.id===sent.body.ids[0]);return j?.status==='completed'?j:false});
+ assert.equal(followup.threadId,initial.threadId);const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse);
+ assert.equal(calls.filter(c=>c.method==='thread/start'&&c.params.ephemeral).length,before);assert.equal(calls.filter(c=>c.method==='turn/start'&&c.params.clientUserMessageId===followup.id).length,1);
 });
