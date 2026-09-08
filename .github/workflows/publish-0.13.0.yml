@@ -1,0 +1,52 @@
+name: Publish verified 0.13.0
+on:
+  push:
+    paths: ['.github/workflows/publish-0.13.0.yml']
+permissions:
+  contents: write
+concurrency:
+  group: publish-0.13.0
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify signed release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.13.0.zip Ai-Task-Manager-Source-0.13.0.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://los-control-similarly-maryland.trycloudflare.com/$f" -o "$f"
+          done
+          echo 'ad52a31052df39e453da64c35fdc559356f72052d514f6d5b8f187d7ae31eaa7  Ai-Task-Manager-Mac-0.13.0.zip' | sha256sum -c -
+          echo 'd03cd0677aa42bccaedd443f21eca1bcf267b6447564d90b87e7896a0858bbbc  Ai-Task-Manager-Source-0.13.0.zip' | sha256sum -c -
+          echo 'a7529d80d23f358dd3a1e8d3e4b289e27d39b751c5b77ce81f395095cd40b277  appcast.xml' | sha256sum -c -
+          echo '95adae60e657e8542c64fe8a3a4e873e340452c26290f33988ce999f3240c5d2  SHA256SUMS.txt' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          set -euo pipefail
+          unzip -q assets/Ai-Task-Manager-Source-0.13.0.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Publish named agents, native app previews, chat order and live motion in 0.13.0'
+          git push
+      - name: Upload draft and publish complete update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(git -C checkout rev-parse HEAD)
+          gh release create v0.13.0 assets/* --target "$target" --draft --title 'Ai Task Manager 0.13.0' --notes 'Saved steering receipts no longer appear as the newest message after loaded history. In-turn messages retain their original order. Confirmed working agents have continuous animated orbs and branch signals across frequent state updates. Agents receive unique persistent editable names, searchable in the universe and history; Rewster coordination can resolve an exact agent name to its existing task. Show app opens a persistent interactive preview beside chat with Hide, Expand, Reload, Open and URL controls. Chat refreshes and hiding the pane preserve the embedded app state. New web-building tasks are instructed to start and share a local preview. The native Mac wrapper now permits isolated preview frames and its photo picker accepts HEIC and HEIF. Local preview servers must remain running; sites that block embedding can open separately. Includes the earlier automatic HEIC conversion update. Browser and native WKWebView preview checks passed, including interactive form state across chat refreshes, plus UI, API, ordering, naming, restart and coordination regressions. The native executable was rebuilt with the Swift release compiler and verified framework resources. Clean packaged startup, all 50 runtime hashes, code signing and Sparkle signature verified. Installation respects active work.'
+          gh release edit v0.13.0 --draft=false --latest
