@@ -18,9 +18,25 @@ jobs:
           set -euo pipefail
           mkdir assets
           cd assets
-          for f in Ai-Task-Manager-Mac-0.14.2.zip Ai-Task-Manager-Source-0.14.2.zip Ai-Task-Manager-Migration-0.14.2.pkg appcast.xml appcast-neutral.xml SHA256SUMS.txt; do
-            curl --http1.1 --fail --location --retry 5 --retry-all-errors --max-time 300 "https://plaintiff-performance-broadcast-hydrogen.trycloudflare.com/$f" -o "$f"
-          done
+          while read -r f size; do
+            : > "$f"
+            for ((start=0; start<size; start+=4194304)); do
+              end=$((start+4194303))
+              if ((end>=size)); then end=$((size-1)); fi
+              curl --silent --show-error --http1.1 --fail --location --retry 20 --retry-all-errors --retry-delay 3 --max-time 40 --range "$start-$end" "https://exercise-silence-supplements-forgotten.trycloudflare.com/$f" -o transfer.part
+              test "$(wc -c < transfer.part)" -eq "$((end-start+1))"
+              cat transfer.part >> "$f"
+            done
+            echo "Downloaded $f"
+          done <<'RELEASE_FILES'
+          Ai-Task-Manager-Mac-0.14.2.zip 154702868
+          Ai-Task-Manager-Source-0.14.2.zip 567269
+          Ai-Task-Manager-Migration-0.14.2.pkg 154306128
+          appcast.xml 995
+          appcast-neutral.xml 921
+          SHA256SUMS.txt 464
+          RELEASE_FILES
+          rm transfer.part
           echo 'c6044cfe0719ff2bb0b562c795983f457df887e02b6b343c6f7f8551b0e5cfd8  Ai-Task-Manager-Mac-0.14.2.zip' | sha256sum -c -
           echo '2f4ff466741d0b58d789affe151531b630f2bfe91f1e00794afed25fa6ea301f  Ai-Task-Manager-Source-0.14.2.zip' | sha256sum -c -
           echo '109d1c343c6d9e9c35b81b2240ee6a398d043b62a226814b45123c3a5e045819  Ai-Task-Manager-Migration-0.14.2.pkg' | sha256sum -c -
