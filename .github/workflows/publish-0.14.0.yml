@@ -1,0 +1,52 @@
+name: Publish verified 0.14.0
+on:
+  push:
+    paths: ['.github/workflows/publish-0.14.0.yml']
+permissions:
+  contents: write
+concurrency:
+  group: publish-0.14.0
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify signed release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.14.0.zip Ai-Task-Manager-Source-0.14.0.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://supervision-cheapest-achievement-medline.trycloudflare.com/$f" -o "$f"
+          done
+          echo 'ab6dc02413d0524d408080ebaae0547fc33687eca47e301ce464c68789b93c60  Ai-Task-Manager-Mac-0.14.0.zip' | sha256sum -c -
+          echo '061776e589de1dd204b54899c170290a11d35503164b93adfaa202c6daefb1f4  Ai-Task-Manager-Source-0.14.0.zip' | sha256sum -c -
+          echo '0acaeb092a4bd8acd26cc7cbc182f287c6c9821287992c5d33fd26c9d78ab2f0  appcast.xml' | sha256sum -c -
+          echo '5aea0b29742ad86c80ef09bbdf4d32ce553467d78dcab7d8ae523cf51335495a  SHA256SUMS.txt' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          set -euo pipefail
+          unzip -q assets/Ai-Task-Manager-Source-0.14.0.zip -d /tmp/reviewed-source
+          rsync -a --delete --exclude=.git --exclude=.github /tmp/reviewed-source/Ai-Task-Manager-Source/ checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Publish responsive dispatch, precise universe scope and department manager chats in 0.14.0'
+          git push
+      - name: Upload draft and publish complete update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(git -C checkout rev-parse HEAD)
+          gh release create v0.14.0 assets/* --target "$target" --draft --title 'Ai Task Manager 0.14.0' --notes 'Fixes slow UI updates and oversized cached tool output. Replies to an explicitly selected agent skip model routing; Send now checks the latest turn and delivers into active work or starts a separate isolated assignment when necessary, with exact receipts and no duplicate fallback after uncertain delivery. Finished-turn evidence releases stale busy records. Universe discovery proposes historical work for review instead of importing entire old businesses. Department routing honors explicit rules and real parent agents, with visible membership reasons. Persistent department manager chats answer from scoped employee evidence, delegate actual requests and monitor changed work every five minutes while the engine is awake, with bounded followups and pause controls. App-server and collaboration signals show subagent activity without promoting recorded history to confirmed live work. Includes deterministic HEIC upload reuse and fresh-account isolation. Backend, UI, restart, receipt, packaged startup and privacy checks passed. Native Swift release executable rebuilt, code signature and Sparkle signature verified. Installation waits for active and queued requests; existing agents are not interrupted.'
+          gh release edit v0.14.0 --draft=false --latest
