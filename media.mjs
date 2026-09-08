@@ -1,7 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import {randomUUID,createHash} from 'node:crypto';
+const run=promisify(execFile);
 export const MAX_IMAGE_BYTES=12*1024*1024,MAX_ATTACHMENTS=8,MAX_ATTACHMENT_BYTES=40*1024*1024;
+export const attachmentFormats=['image/png','image/jpeg','image/webp','image/gif',...(process.platform==='darwin'?['image/heic','image/heif']:[])];
+export function isHeif(bytes){
+ if(bytes.length<16||bytes.toString('ascii',4,8)!=='ftyp')return false;
+ const size=bytes.readUInt32BE(0);if(size<16||size>Math.min(bytes.length,4096)||size%4)return false;
+ const brands=[bytes.toString('ascii',8,12)];for(let i=16;i<size;i+=4)brands.push(bytes.toString('ascii',i,i+4));
+ return !brands.some(b=>['avif','avis'].includes(b))&&brands.some(b=>['heic','heix','hevc','hevx','heim','heis','hevm','hevs','mif1','msf1'].includes(b));
+}
 export function imageType(bytes){
  if(bytes.length>=24&&bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return {mime:'image/png',ext:'png'};
  if(bytes.length>=4&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255)return {mime:'image/jpeg',ext:'jpg'};
@@ -16,6 +27,27 @@ export class MediaStore{
  public(entry){return {id:entry.id,name:entry.name,mime:entry.mime,size:entry.size,url:'/api/media/'+entry.id};}
  get(id){const entry=this.entries.find(e=>e.id===id);if(!entry)throw Error('Image is unavailable. Attach it again.');return entry;}
  filename(id){const e=this.get(id);return path.join(this.dir,e.id+'.'+e.ext);}
+ async putUpload(bytes,name='Photo'){
+  if(!Buffer.isBuffer(bytes))bytes=Buffer.from(bytes);
+  if(!bytes.length||bytes.length>MAX_IMAGE_BYTES)throw Error('Each image must be 12 MB or smaller.');
+  if(!isHeif(bytes))return this.put(bytes,name);
+  if(process.platform!=='darwin')throw Error('HEIC conversion requires the Mac app. Export this photo as JPEG or PNG and attach it again.');
+  const dir=await fs.promises.mkdtemp(path.join(os.tmpdir(),'task-manager-photo-'));let converted;
+  try{
+   await fs.promises.chmod(dir,0o700);
+   const input=path.join(dir,'original.heic'),output=path.join(dir,'converted.jpg');
+   await fs.promises.writeFile(input,bytes,{mode:0o600});
+   await run('/usr/bin/sips',['-s','format','jpeg','-s','formatOptions','85',input,'--out',output],{timeout:60000,maxBuffer:64*1024});
+   if((await fs.promises.stat(output)).size>MAX_IMAGE_BYTES){
+    await run('/usr/bin/sips',['-Z','4096','-s','format','jpeg','-s','formatOptions','80',input,'--out',output],{timeout:60000,maxBuffer:64*1024});
+   }
+   if((await fs.promises.stat(output)).size>MAX_IMAGE_BYTES)throw Error('Converted image is too large');
+   converted=await fs.promises.readFile(output);
+   if(imageType(converted).mime!=='image/jpeg')throw Error('Conversion did not produce JPEG');
+  }catch{throw Error('This HEIC photo could not be converted. Try exporting it as JPEG from Photos and attach it again.');}
+  finally{await fs.promises.rm(dir,{recursive:true,force:true});}
+  return this.put(converted,safeName(name).replace(/\.(heic|heif)$/i,'')+'.jpg');
+ }
  put(bytes,name='Image',kind='upload'){
  if(!Buffer.isBuffer(bytes))bytes=Buffer.from(bytes);if(!bytes.length||bytes.length>MAX_IMAGE_BYTES)throw Error('Each image must be 12 MB or smaller.');
  const type=imageType(bytes),sha256=createHash('sha256').update(bytes).digest('hex'),existing=this.hashes.get(sha256);

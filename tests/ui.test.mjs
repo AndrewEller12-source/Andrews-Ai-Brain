@@ -391,3 +391,21 @@ test('paused requests expose resume controls and remain discoverable after reope
   a.update(snapshot({...state,jobs:[{...state.jobs[0],status:'running'}]}));a.$('#work-filter').value='working';a.$('#work-filter').dispatchEvent(new a.w.Event('change'));assert.ok(a.$('[data-pause-work="saved"]'));assert.equal(a.$('[data-resume-work]'),null);
  }finally{a.close()}
 });
+
+test('HEIC picker and paste accept iPhone photos without a MIME type and preserve converted attachment IDs',async()=>{
+ let complete;const a=app(snapshot(),async url=>url.startsWith('/api/attachments?')?new Promise(r=>complete=r):{ids:['sent']});
+ try{
+  assert.match(a.$('#photo-input').accept,/\.heic/);assert.match(a.$('#photo-input').accept,/image\/heif/);
+  const event=new a.w.Event('paste',{cancelable:true});Object.defineProperty(event,'clipboardData',{value:{files:[new a.w.File(['heic'],'IMG_2540.HEIC')]}});a.$('#prompt').dispatchEvent(event);
+  assert.equal(event.defaultPrevented,true);assert.match(a.$('#attachment-tray').textContent,/Converting iPhone photo/);assert.equal(a.$('#send').disabled,true);
+  complete({...photo,name:'IMG_2540.jpg',mime:'image/jpeg'});await tick();assert.ok(a.$('#attachment-tray [data-photo]'));assert.equal(a.$('#send').disabled,false);
+  a.$('#send').click();await tick();assert.deepEqual(a.calls.find(c=>c.url==='/api/intake').body.options.attachments,[photo.id]);
+ }finally{a.close()}
+});
+
+test('larger converted JPEGs cannot silently exceed the combined attachment limit',async()=>{
+ let count=0;const a=app(snapshot(),async()=>({...photo,id:'converted-'+(++count),size:11*1024*1024}));try{
+ await a.w.uploadPhotos(Array.from({length:4},(_,i)=>new a.w.File(['heic'],'Phone'+i+'.HEIC')));
+ assert.equal(a.w.document.querySelectorAll('#attachment-tray [data-photo]').length,3);assert.match(a.$('.upload-failed').textContent,/40 MB combined/);assert.equal(a.$('#send').disabled,true);
+ }finally{a.close()}
+});

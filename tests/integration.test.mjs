@@ -311,3 +311,17 @@ test('pausing queued work never dispatches it and resume preserves its original 
  assert.equal((await f.post('/api/pause-task',{id})).status,200);assert.equal((await f.get()).jobs[0].status,'paused');
  const r=await f.post('/api/resume-task',{id});assert.equal(r.status,202);assert.equal(r.body.id,id);assert.equal((await f.get()).jobs.length,1);assert.equal((await f.get()).jobs[0].status,'queued');
 });
+
+test('HEIC upload serves a JPEG and resumes its registered attachment after restart',{skip:process.platform!=='darwin'},async t=>{
+ const {execFile}=await import('node:child_process'),{promisify}=await import('node:util'),run=promisify(execFile);
+ const f=await fixture(t),input=path.join(f.dir,'photo.png'),heic=path.join(f.dir,'photo.heic');
+ fs.writeFileSync(input,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64'));
+ await run('/usr/bin/sips',['-z','120','160',input,'--out',input]);await run('/usr/bin/sips',['-s','format','heic',input,'--out',heic]);
+ const response=await fetch(f.base+'/api/attachments?name=Phone.HEIC',{method:'POST',headers:{'X-Rewster-Request':'1',Origin:f.base,'Content-Type':'application/octet-stream'},body:fs.readFileSync(heic)});
+ assert.equal(response.status,201);const asset=await response.json();assert.equal(asset.mime,'image/jpeg');assert.equal(asset.name,'Phone.jpg');
+ const image=await fetch(f.base+asset.url);assert.equal(image.headers.get('content-type'),'image/jpeg');const jpeg=Buffer.from(await image.arrayBuffer());assert.equal(jpeg.readUInt16BE(0),0xffd8);
+ await f.stop();const next=await fixture(t,{dir:f.dir});const result=await next.post('/api/intake',{messages:['Inspect this photo'],requestKey:'heic-saved',options:{attachments:[asset.id]}});assert.equal(result.status,202);
+ const job=await until(async()=>{const j=(await next.get()).jobs.find(j=>j.id===result.body.ids[0]);return j?.status==='completed'&&j});
+ const calls=fs.readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse),turn=calls.find(c=>c.method==='turn/start'&&c.params.threadId===job.threadId);
+ const photo=turn.params.input.find(i=>i.type==='localImage');assert.ok(photo.path.endsWith('.jpg'));assert.deepEqual(fs.readFileSync(photo.path),jpeg);
+});

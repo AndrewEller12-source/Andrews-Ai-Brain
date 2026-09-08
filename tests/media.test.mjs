@@ -8,3 +8,24 @@ test('markdown cannot expose outside files or workspace symlinks, explicit Codex
 test('messages preserve turn, image provenance and usable generated image cards, exclude reasoning',t=>{const {cwd,media}=fixture(t);fs.writeFileSync(path.join(cwd,'ref image.png'),png);const items=normalizeConversation([{turnId:'one',item:{type:'userMessage',id:'u',clientId:'request',content:[{type:'text',text:'Change only the background'},{type:'localImage',path:path.join(cwd,'ref image.png')}] }},{turnId:'one',item:{type:'imageGeneration',id:'g',status:'completed',result:png.toString('base64'),revisedPrompt:'Updated background'}},{turnId:'one',item:{type:'reasoning',id:'r',text:'hidden'}}],media,{cwd});assert.equal(items.length,2);assert.equal(items[0].id,'user:request');assert.equal(items[0].turnId,'one');assert.equal(items[0].text,'Change only the background');assert.ok(items.every(i=>i.images[0].url));const markdown=normalizeConversationItem({type:'agentMessage',id:'m',text:'Here is the result.\n![Result](<ref image.png>)\n```\n![not real](fake.png)\n```'},media,{cwd});assert.equal(markdown.images.length,1);assert.ok(markdown.images[0].url);});
 test('remote images are explicit links without server fetching and missing files have honest placeholders',t=>{const {cwd,media}=fixture(t);const remote=media.reference('https://example.com/design.png',{cwd});assert.equal(remote.unavailable,true);assert.equal(remote.remoteUrl,'https://example.com/design.png');assert.equal(media.entries.length,0);assert.equal(media.reference('missing.png',{cwd}).unavailable,true);assert.equal(media.reference('data:image/svg+xml;base64,PHN2Zz4=',{cwd}).unavailable,true);});
 test('tool image results become photo cards and updated files receive new immutable image IDs',t=>{const {cwd,media}=fixture(t),file=path.join(cwd,'design.png');fs.writeFileSync(file,png);const one=media.reference(file,{cwd});const changed=Buffer.concat([png,Buffer.from('changed')]);fs.writeFileSync(file,changed);const two=media.reference(file,{cwd});assert.notEqual(one.id,two.id);assert.deepEqual(fs.readFileSync(media.filename(one.id)),png);const tool=normalizeConversationItem({turnId:'t',item:{type:'mcpToolCall',id:'tool',server:'design',tool:'render',result:{content:[{type:'image',mimeType:'image/png',data:png.toString('base64')}]}}},media,{cwd});assert.equal(tool.images[0].id,one.id);});
+
+test('HEIF detection reads container brands, not the extension, and excludes AVIF',async()=>{
+ const {isHeif}=await import('../media.mjs');
+ const container=brands=>{const b=Buffer.alloc(16+4*(brands.length-1));b.writeUInt32BE(b.length);b.write('ftyp',4);b.write(brands[0],8);brands.slice(1).forEach((v,i)=>b.write(v,16+i*4));return b};
+ assert.equal(isHeif(container(['heic','mif1'])),true);assert.equal(isHeif(container(['mif1','heix'])),true);
+ assert.equal(isHeif(container(['avif','mif1'])),false);assert.equal(isHeif(png),false);
+ const broken=container(['heic']);broken.writeUInt32BE(100);assert.equal(isHeif(broken),false);
+});
+test('HEIC uploads convert locally to durable JPEG while normal uploads stay byte-identical',{skip:process.platform!=='darwin'},async t=>{
+ const {execFile}=await import('node:child_process'),{promisify}=await import('node:util'),run=promisify(execFile);
+ const {dir,media}=fixture(t),input=path.join(dir,'fixture.png'),heic=path.join(dir,'fixture.heic');fs.writeFileSync(input,png);
+ await run('/usr/bin/sips',['-z','120','160',input,'--out',input]);await run('/usr/bin/sips',['-s','format','heic',input,'--out',heic]);
+ const bytes=fs.readFileSync(heic),asset=await media.putUpload(bytes,'../../Photo.HEIC');
+ assert.equal(asset.name,'Photo.jpg');assert.equal(asset.mime,'image/jpeg');assert.equal(fs.statSync(media.filename(asset.id)).mode&0o777,0o600);
+ assert.deepEqual(fs.readFileSync(heic),bytes);assert.equal(media.inputs([asset.id])[0].path,media.filename(asset.id));
+ const dimensions=await run('/usr/bin/sips',['-g','pixelWidth','-g','pixelHeight',media.filename(asset.id)]);assert.match(dimensions.stdout,/pixelWidth: 160/);assert.match(dimensions.stdout,/pixelHeight: 120/);
+ assert.equal((await media.putUpload(bytes,'Same.heif')).id,asset.id);
+ const normal=await media.putUpload(png,'PNG.heic');assert.equal(normal.mime,'image/png');assert.deepEqual(fs.readFileSync(media.filename(normal.id)),png);
+ const count=media.entries.length;await assert.rejects(media.putUpload(bytes.subarray(0,48),'Broken.heic'),/could not be converted/);assert.equal(media.entries.length,count);
+ await assert.rejects(media.putUpload(Buffer.from('bad'),'Renamed.heic'),/PNG/);await assert.rejects(media.putUpload(Buffer.alloc(MAX_IMAGE_BYTES+1),'Huge.heic'),/12 MB/);
+});
