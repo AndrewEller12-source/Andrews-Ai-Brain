@@ -1,0 +1,52 @@
+name: Publish verified 0.12.2
+on:
+  push:
+    paths: ['.github/workflows/publish-0.12.2.yml']
+permissions:
+  contents: write
+concurrency:
+  group: publish-0.12.2
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify signed release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          for f in Ai-Task-Manager-Mac-0.12.2.zip Ai-Task-Manager-Source-0.12.2.zip appcast.xml SHA256SUMS.txt; do
+            curl --fail --location --retry 3 --max-time 300 "https://jamie-leaves-tony-quebec.trycloudflare.com/$f" -o "$f"
+          done
+          echo 'a39d328011b00f08a11dd7b5594fe4318abd4388be9bcbd6bca0af428c3da0b5  Ai-Task-Manager-Mac-0.12.2.zip' | sha256sum -c -
+          echo '8493187c82471f6ff1c451878695c75f25f18fb4e1ab049ba2fc6ca8b951ac9c  Ai-Task-Manager-Source-0.12.2.zip' | sha256sum -c -
+          echo 'e0bd685296c57297ed6009bb202ad1f9e9fd92f1b4a2d44be6ffdc88e5a6f3c6  appcast.xml' | sha256sum -c -
+          echo 'bb965360b19a59895b86c31cde70943c29f8adc0e6238b9f4953d989c38ee653  SHA256SUMS.txt' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          set -euo pipefail
+          unzip -q assets/Ai-Task-Manager-Source-0.12.2.zip -d /tmp/reviewed-source
+          cp -a /tmp/reviewed-source/Ai-Task-Manager-Source/. checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Publish automatic HEIC photo uploads in 0.12.2'
+          git push
+      - name: Upload draft and publish complete update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(git -C checkout rev-parse HEAD)
+          gh release create v0.12.2 assets/* --target "$target" --draft --title 'Ai Task Manager 0.12.2' --notes 'iPhone HEIC and HEIF photos now convert locally to JPEG during upload on Mac. The photo picker, paste, and drag-and-drop accept these photos; the composer shows conversion progress. Original files remain unchanged, standard image uploads retain their bytes, and converted photos use the existing durable attachment and task delivery paths. Invalid photos and combined-size overflow produce actionable errors. Verified all three reported photos through the local HTTP upload and browser preview, preserving full resolution. Passed 77 media and UI checks, 29 HTTP integration checks, and five final focused regressions including combined-size validation. Verified clean packaged startup, all 49 runtime hashes, code signing and Sparkle signature. The unchanged native shell is reused from the verified previous release. Installation respects active work.'
+          gh release edit v0.12.2 --draft=false --latest
