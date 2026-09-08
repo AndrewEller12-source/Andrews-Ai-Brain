@@ -19,7 +19,7 @@ jobs:
           mkdir assets
           cd assets
           for f in Ai-Task-Manager-Mac-0.14.2.zip Ai-Task-Manager-Source-0.14.2.zip Ai-Task-Manager-Migration-0.14.2.pkg appcast.xml appcast-neutral.xml SHA256SUMS.txt; do
-            curl --fail --location --retry 3 --max-time 300 "https://plaintiff-performance-broadcast-hydrogen.trycloudflare.com/$f" -o "$f"
+            curl --http1.1 --fail --location --retry 5 --retry-all-errors --max-time 300 "https://plaintiff-performance-broadcast-hydrogen.trycloudflare.com/$f" -o "$f"
           done
           echo 'c6044cfe0719ff2bb0b562c795983f457df887e02b6b343c6f7f8551b0e5cfd8  Ai-Task-Manager-Mac-0.14.2.zip' | sha256sum -c -
           echo '2f4ff466741d0b58d789affe151531b630f2bfe91f1e00794afed25fa6ea301f  Ai-Task-Manager-Source-0.14.2.zip' | sha256sum -c -
