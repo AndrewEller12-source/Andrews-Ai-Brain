@@ -1,3 +1,4 @@
+import {agentMission,departmentGoal} from './agent-missions.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import {departmentCatalog} from './organization.mjs';
 import {universeScope} from './universes.mjs';
@@ -15,7 +16,7 @@ export function departmentRoster(data,universeId,department,threads=data.threadC
  return scope.threads.filter(t=>!t.archived&&!internal.has(t.id)&&t.department===department).map(t=>{
   const jobs=scope.jobs.filter(j=>j.threadId===t.id&&!j.managerForDepartment&&!j.rewsterReview);
   const latest=jobs.at(-1),activity=t.activity||{state:t.recordedStatus||'unknown',source:'history'};
-  return {id:t.id,name:data.agentNames?.[t.id]||t.agentName||t.title,title:t.title,parentThreadId:t.parentThreadId||null,activity,request:latest?.originalRequest||latest?.prompt||t.preview||t.title,latestActivity:t.lastActivity,activityAt:t.activityAt||t.lastEventAt,jobStatus:latest?.status||null,turnId:activity.turnId||latest?.turnId||t.turnId||null,updates:jobs.filter(j=>(j.updatedAt||j.createdAt)>Date.now()-3*86400000).slice(-8).map(j=>({at:j.updatedAt||j.createdAt,request:j.prompt,result:(j.response||'').slice(0,4000),status:j.status})),quality:latest?.quality||null};
+  return {mission:agentMission(data,universeId,t),departmentGoal:departmentGoal(data,universeId,department),id:t.id,name:data.agentNames?.[t.id]||t.agentName||t.title,title:t.title,parentThreadId:t.parentThreadId||null,activity,request:latest?.originalRequest||latest?.prompt||t.preview||t.title,latestActivity:t.lastActivity,activityAt:t.activityAt||t.lastEventAt,jobStatus:latest?.status||null,turnId:activity.turnId||latest?.turnId||t.turnId||null,updates:jobs.filter(j=>(j.updatedAt||j.createdAt)>Date.now()-3*86400000).slice(-8).map(j=>({at:j.updatedAt||j.createdAt,request:j.prompt,result:(j.response||'').slice(0,4000),status:j.status})),quality:latest?.quality||null};
  });
 }
 export const managerPlanSchema={type:'object',additionalProperties:false,properties:{answer:{type:'string'},actions:{type:'array',items:{type:'object',additionalProperties:false,properties:{kind:{type:'string',enum:['followup','new']},threadId:{type:['string','null']},message:{type:'string'},reason:{type:'string'}},required:['kind','threadId','message','reason']}}},required:['answer','actions']};

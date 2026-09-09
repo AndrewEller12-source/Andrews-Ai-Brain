@@ -8,6 +8,12 @@ A local dashboard powered by the Codex app-server and official Codex SDK. One in
 
 See [APPLE-APPS.md](APPLE-APPS.md) for the editable Mac and iPhone apps, or [CUSTOMER-QUICKSTART.md](CUSTOMER-QUICKSTART.md) for the portable dashboard. Existing Rewster Command data and task history are preserved.
 
+## GOD CHAT
+
+Open GOD CHAT from the sidebar or universe map. Coordinate reviews the selected universe and gives available agents distinct assignments based on their roles and goals; status questions return a briefing. Broadcast sends your exact message to each eligible employee chat, including steering into confirmed active turns. Each recipient has a saved assignment and delivery receipt. Paused, stopped, unavailable and unconfirmed work is surfaced for review, never silently handed to a substitute agent.
+
+Edit each agent’s role, goal and completion condition, and each department’s business goal in the roster. Existing agents begin with a responsibility derived from their original assignment, marked for refinement. Roles and goals stay within their universe and also inform department managers. Rounds are batched, idempotent and saved before delivery; interrupted rounds retain their receipts for review instead of broadcasting again automatically.
+
 ## Install and run
 
 The architecture-specific Mac ZIP includes Node.js, the pinned Codex CLI and SDK: extract and double-click Start Rewster Command.command. The source-only ZIP requires Node.js 22.12+. Internet access is needed for model execution and sign-in; Git is needed for Git worktrees.

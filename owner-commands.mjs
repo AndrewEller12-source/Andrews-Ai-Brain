@@ -51,6 +51,7 @@ export async function sendQueuedNow(store,job,threads,services){
  const confirmedIdle=['desktop','app-server'].includes(activity?.source)&&['completed','interrupted','idle'].includes(activity.state);
  const busy=store.data.jobs.some(j=>j!==job&&!(confirmedIdle&&j.threadId===id&&j.turnId===activity.turnId)&&['starting','running','review'].includes(j.status)&&(id&&j.threadId===id||job.workspaceKey&&j.workspaceKey===job.workspaceKey));
  if(id&&(busy||!['completed','interrupted','idle'].includes(activity?.state))){
+  if(services.allowNewAgent===false){Object.assign(job,{status:'uncertain',waitReason:'The selected agent could not accept a verified message. No substitute agent was created.',error:'Inspect this agent before trying a new round.'});store.save();return job;}
   // Work on a separate assignment rather than resuming a possibly active thread.
   Object.assign(job,{sourceThreadId:id,threadId:null,workspaceKey:null,deliveryMode:'new-agent',prompt:job.prompt+'\n\nAssignment context: This request was explicitly sent now as a separate assignment because the intended agent could not accept a verified immediate message. Original conversation: '+id+'. Original task: '+(task?.title||'Unavailable')+'. Complete only this new request in your own workspace. Do not duplicate the original assignment. Ask for missing context if necessary.',projectLabel:'Immediate assignment'});
  }else if(!id&&busy){job.sourceWorkspace=job.workspaceKey;job.workspaceKey=null;job.deliveryMode='new-agent';}

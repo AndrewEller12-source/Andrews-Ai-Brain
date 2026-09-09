@@ -210,3 +210,34 @@ body.chat-mode{overflow:hidden}.chat-mode .shell{height:100dvh;display:flex;flex
 #agent-question-popup footer{padding:12px 20px;border-top:1px solid #30475b;color:#aac0d1;font-size:12px}
 #agent-question-launcher{position:fixed;right:24px;bottom:24px;z-index:1199;box-shadow:0 8px 30px #0006}
 @media(max-width:600px){#agent-question-popup{right:16px;bottom:16px;max-height:75dvh}#agent-question-launcher{right:16px;bottom:16px}}
+
+.god-office{border-top:2px solid #67dce9}
+.god-office>header h2{font-size:24px;letter-spacing:.025em}
+.god-office .department-office-body{grid-template-columns:minmax(0,1fr) minmax(300px,360px)}
+.god-mode{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.god-mode label{display:flex;align-items:center;gap:8px;border:1px solid #315267;border-radius:7px;padding:10px 16px;cursor:pointer}
+.god-mode label:has(input:checked){background:#173849;border-color:#67dce9;color:#a6f5ff}
+.god-mode input{accent-color:#67dce9;width:auto}
+#god-mode-hint{max-width:70ch;color:#b0c7d9;font-size:13px;margin:6px 0 14px}
+.god-delivery{padding:12px 0;border-bottom:1px solid #294054;display:grid;grid-template-columns:1fr auto;gap:6px 12px}
+.god-delivery p,.god-delivery small{grid-column:1/-1;white-space:pre-wrap;margin:0;overflow-wrap:anywhere}
+.god-delivery span{color:#a6dce3;font-size:12px}
+.god-delivery button{justify-self:start}
+.god-receipts{margin-top:14px}
+.god-receipts summary{cursor:pointer;color:#abdce3}
+.god-department{margin-top:24px}
+.god-department h4{margin:0 0 8px;color:#8be3ef}
+.god-roster label{display:block;font-size:12px;margin-top:12px;color:#b8cddd}
+.god-roster input,.god-roster textarea{display:block;width:100%;margin-top:5px;box-sizing:border-box}
+.god-roster summary{cursor:pointer}
+.god-employee{border-bottom:1px solid #2a4155;padding:14px 0}
+.god-employee summary{list-style:none}
+.god-employee summary strong,.god-employee summary span,.god-employee summary small{display:block;margin:3px 0}
+.god-employee summary span{font-size:13px;overflow-wrap:anywhere}
+.god-employee small,.god-roster>p{font-size:12px;color:#afc3d6}
+.god-employee form{margin-bottom:10px}
+.god-roster button{margin-top:8px}
+.god-save-result{font-size:12px;color:#8edbe5}
+@media(max-width:900px){.god-office .department-office-body{grid-template-columns:1fr}.god-roster{max-height:420px}.god-delivery{grid-template-columns:1fr}.god-office>header{flex-wrap:wrap}}
+
+#god-chat-form{padding:20px;border-top:1px solid #29475d;display:grid;gap:12px;background:#142438}#god-chat-form .primary{justify-self:end}#god-chat-error:empty{display:none}.god-office>header>div{flex:1}.god-employee summary i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#557080;margin-right:8px}.god-employee summary .employee-live{background:#48e4ce;box-shadow:0 0 8px #48e4ce}
