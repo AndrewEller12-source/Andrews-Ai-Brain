@@ -1,0 +1,70 @@
+name: Publish verified 0.14.6
+on:
+  push:
+    paths: ['.github/workflows/publish-0.14.6.yml']
+permissions:
+  contents: write
+concurrency:
+  group: publish-0.14.6
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download and verify signed release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir assets
+          cd assets
+          while read -r f size; do
+            : > "$f"
+            for ((start=0; start<size; start+=4194304)); do
+              end=$((start+4194303))
+              if ((end>=size)); then end=$((size-1)); fi
+              curl --silent --show-error --http1.1 --fail --location --retry 20 --retry-all-errors --retry-delay 3 --max-time 40 --range "$start-$end" "https://julie-mathematical-albany-prot.trycloudflare.com/$f" -o transfer.part
+              test "$(wc -c < transfer.part)" -eq "$((end-start+1))"
+              cat transfer.part >> "$f"
+            done
+            echo "Downloaded $f"
+          done <<'RELEASE_FILES'
+          Ai-Task-Manager-Mac-0.14.6.zip 154717492
+          Ai-Task-Manager-Migration-0.14.6.pkg 154324557
+          Ai-Task-Manager-Source-0.14.6.zip 580267
+          SHA256SUMS.txt 464
+          appcast-neutral.xml 921
+          appcast.xml 995
+          RELEASE_FILES
+          rm transfer.part
+          echo '6940d60951db286e4b2d918d4bb9a50af7508ce8623d54a47e04fc68a903737f  Ai-Task-Manager-Mac-0.14.6.zip' | sha256sum -c -
+          echo '68a8ea0edfe50f9736c8c7fbf88c8bbdfa81e768418a23b5df631140135fdbb3  Ai-Task-Manager-Migration-0.14.6.pkg' | sha256sum -c -
+          echo 'edab7320cb3ad7cd50f9249d07f6625fa2daea2dcfeb58c27fc0e88266a177c8  Ai-Task-Manager-Source-0.14.6.zip' | sha256sum -c -
+          echo '9d3831b457185050f9e6a21e794cf8a7b8719deb5c2aff8b2083e4853f76e1a2  SHA256SUMS.txt' | sha256sum -c -
+          echo 'f2a56021e880c051e563b826d27c4d2da3b88b1e7c760b8853299b3c492f40f7  appcast-neutral.xml' | sha256sum -c -
+          echo '7acb0af773854a90c2047eb5e53f83611890ef792b55fafc220c215731f78e93  appcast.xml' | sha256sum -c -
+          sha256sum -c SHA256SUMS.txt
+      - uses: actions/checkout@v4
+        with:
+          path: checkout
+      - name: Import reviewed editable source
+        run: |
+          set -euo pipefail
+          unzip -q assets/Ai-Task-Manager-Source-0.14.6.zip -d /tmp/reviewed-source
+          rsync -a --delete --exclude=.git --exclude=.github /tmp/reviewed-source/Ai-Task-Manager-Source/ checkout/
+          cd checkout
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Reduce redundant AI coordination and preserve discovery caches in 0.14.6'
+          git push
+      - name: Upload draft and publish complete update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(git -C checkout rev-parse HEAD)
+          gh release create v0.14.6 assets/* --target "$target" --draft --title 'Ai Task Manager 0.14.6' --notes 'Reduces avoidable Codex usage while preserving worker models, GOD CHAT, department managers, live views, and quality checks. Automatic managers evaluate changed outcomes instead of tool pulses, cache unchanged blockers, and give each employee one supervising universe. Discovery reuses prior classifications across ordinary follow-ups and upgrades, ignores internal coordination messages, and bounds failed retries with an explicit retry control. Settings now shows AI request counts and reported coordinator token usage; these are not billed credit totals. Also fixes startup after reboot when a saved process identifier belongs to an unrelated system process. Targeted functional, integration, account-isolation and privacy tests passed. Existing local workspace data stays in place. No measured percentage saving is claimed. Apple silicon and macOS 14 or later; ad-hoc signed, not notarized. Existing neutral-identity installations use the signed ZIP update. Legacy migration packages may require a manual app installation if macOS rejects the updater package.'
+          gh release edit v0.14.6 --draft=false --latest
