@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
-import {pendingUpgradeJobs,newerVersion} from '../upgrade.mjs';
+import {pendingUpgradeJobs,newerVersion,savedServerState} from '../upgrade.mjs';
 import {appRoot,dataDir} from '../runtime.mjs';
 const [major,minor]=process.versions.node.split('.').map(Number);
 if(major<22||(major===22&&minor<12))throw new Error('Node.js 22.12 or newer is required.');
@@ -31,7 +31,13 @@ if(await isReady()){
 
 fs.mkdirSync(dataDir,{recursive:true,mode:0o700});
 const pidFile=path.join(dataDir,'server.pid');
-if(fs.existsSync(pidFile)){try{const pid=Number(fs.readFileSync(pidFile,'utf8'));process.kill(pid,0);throw new Error(`A saved Rewster server process (${pid}) is running but is not responding. Check ${dataDir} for its log before restarting.`);}catch(error){if(error.code!=='ESRCH'&&error.code!=='EINVAL')throw error;}}
+if(fs.existsSync(pidFile)){
+ const saved=fs.readFileSync(pidFile,'utf8'),pid=Number(saved);
+ const status=await savedServerState(pid,{savedAt:fs.statSync(pidFile).mtimeMs});
+ if(status!=='stale')throw Error(`The saved workspace process (${pid}) ${status==='running'?'is still running but is not responding':'could not be identified safely'}. No process was stopped. Check ${dataDir} for its log before restarting.`);
+ if(fs.readFileSync(pidFile,'utf8')!==saved)throw Error('Another launcher changed the workspace process. Open the app again.');
+ fs.rmSync(pidFile);
+}
 const log=fs.openSync(path.join(dataDir,'server.log'),'a',0o600);
 const child=spawn(process.execPath,[path.join(appRoot,'server.mjs')],{cwd:appRoot,detached:true,stdio:['ignore',log,log],env:process.env});
 child.on('error',error=>{console.error(error.message);process.exitCode=1;});
